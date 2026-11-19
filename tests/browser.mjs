@@ -17,6 +17,11 @@ try {
     await page.waitForURL(/wp-admin/, { waitUntil: 'domcontentloaded' });
     await page.goto(topic, { waitUntil: 'domcontentloaded' });
     const area = page.locator('.post-reactions').first();
+    await expect(area.locator('summary')).toHaveText('+');
+    const requested = ['😆', '😭', '❤️', '💎', '🗣️', '🗳️', '✅', '❌', '😡', '💀'];
+    for (const emoji of requested) {
+        await expect(area.locator('.reaction-picker button').filter({ hasText: emoji })).toHaveCount(1);
+    }
     while (await area.locator('.reaction-pill[aria-pressed="true"]').count()) {
         await area.locator('.reaction-pill[aria-pressed="true"]').first().click();
         await expect(area).not.toHaveAttribute('aria-busy', 'true');
@@ -29,6 +34,10 @@ try {
         expect((await result.json()).status).toBe(true);
         await expect(area).not.toHaveAttribute('aria-busy', 'true');
     }
+    await choose('skull');
+    await expect(area.locator('.reaction-pill[data-reaction="skull"]')).toHaveAttribute('aria-pressed', 'true');
+    await area.locator('.reaction-pill[data-reaction="skull"]').click();
+    await expect(area.locator('.reaction-pill[data-reaction="skull"]')).toHaveCount(0);
     await choose('up');
     await choose('heart');
     await expect(area.locator('.reaction-pill[aria-pressed="true"]')).toHaveCount(2);
@@ -52,15 +61,19 @@ try {
     await choose('eyes');
     await area.locator('.reaction-pill[data-reaction="eyes"]').click();
     await expect(area).not.toHaveAttribute('aria-busy', 'true');
-    await mkdir('docs/img/emoji-reactions', { recursive: true });
+    const screenshotDir = process.env.FORUM_SCREENSHOT_DIR || 'docs/img/emoji-reactions';
+    await mkdir(screenshotDir, { recursive: true });
     await area.locator('summary').click();
-    await page.locator('#af-wrapper').screenshot({ path: 'docs/img/emoji-reactions/desktop.png' });
+    const desktopPicker = await area.locator('.reaction-picker-options').boundingBox();
+    const postBounds = await page.locator('#postid-1').boundingBox();
+    expect(desktopPicker.y).toBeGreaterThanOrEqual(postBounds.y);
+    await page.locator('#af-wrapper').screenshot({ path: `${screenshotDir}/desktop.png` });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(100);
     const picker = await area.locator('.reaction-picker-options').boundingBox();
     expect(picker.x).toBeGreaterThanOrEqual(0);
     expect(picker.x + picker.width).toBeLessThanOrEqual(390);
-    await page.locator('#af-wrapper').screenshot({ path: 'docs/img/emoji-reactions/mobile.png' });
+    await page.locator('#af-wrapper').screenshot({ path: `${screenshotDir}/mobile.png` });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(overflow).toBe(false);
     expect(errors).toEqual([]);
