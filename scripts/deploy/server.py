@@ -362,6 +362,7 @@ class Deployment:
                 self.own_stage(self.plugin)
                 with dump.open('rb') as source:
                     self.wp(self.site, 'db', 'import', '-', stdin=source)
+                self.wp(self.site, 'cache', 'flush')
                 if before_uploads is not None and uploads_hash(uploads) != before_uploads:
                     if uploads.exists():
                         uploads.rename(self.release / 'failed-uploads')
