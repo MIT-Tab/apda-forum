@@ -81,4 +81,33 @@ deactivate_plugins('asgaros-forum/asgaros-forum.php');
 activate_plugin('asgaros-forum/asgaros-forum.php');
 forum_assert($before === $wpdb->get_results("SELECT * FROM {$wpdb->prefix}forum_posts", ARRAY_A), 'Reactivation must preserve posts');
 echo "Reaction toggles, permissions, summaries, and history preservation verified\n";
+// Extensions must not reintroduce any flag emoji into the available reactions.
+$flags = array('⛳', '🇺🇸', '🇨🇦', '🇺🇳', '🏁', '🚩', '🎌', '🏴', '🏳️', '🏳️‍🌈', '🏳️‍⚧️', '🏴‍☠️', "🏴\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}");
+$extra_reactions = function($available) use ($flags) {
+    foreach ($flags as $index => $flag) {
+        $available['test-flag-'.$index] = array('emoji' => $flag, 'screen_reader_text' => 'Flag');
+    }
+    $available['test-globe'] = array('emoji' => '🌍', 'screen_reader_text' => 'Globe');
+    $available['test-rainbow'] = array('emoji' => '🌈', 'screen_reader_text' => 'Rainbow');
+    return $available;
+};
+add_filter('asgarosforum_reactions', $extra_reactions);
+$reactions->initialize();
+$html = $reactions->render_reactions($post->id, 1);
+foreach ($flags as $index => $flag) {
+    forum_assert(strpos($html, 'data-reaction="test-flag-'.$index.'"') === false, 'Flag must not appear in the picker');
+    forum_assert(!$reactions->reaction_change($post->id, 1, 'test-flag-'.$index, 1), 'Flag submissions must be rejected');
+}
+forum_assert(strpos($html, 'data-reaction="test-globe"') !== false, 'Non-flag extensions remain available');
+forum_assert(strpos($html, 'data-reaction="test-rainbow"') !== false, 'A standalone rainbow is not a flag');
+forum_assert($reactions->reaction_change($post->id, 1, 'test-globe', 1), 'Non-flag extension can be added');
+forum_assert($reactions->reaction_change($post->id, 1, 'test-globe', 1), 'Non-flag extension can be removed');
+$reactions->add_reaction($post->id, 1, 'test-flag-0', 1);
+$reactions->load_reactions($topic->id);
+forum_assert(strpos($reactions->render_reactions($post->id, 1), 'data-reaction="test-flag-0"') === false, 'Historical flags must not appear as reaction pills');
+forum_assert($wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}forum_reactions WHERE reaction = 'test-flag-0'") == 1, 'Historical flag records must be retained');
+remove_filter('asgarosforum_reactions', $extra_reactions);
+$reactions->initialize();
+forum_assert($before === $wpdb->get_results("SELECT * FROM {$wpdb->prefix}forum_posts", ARRAY_A), 'Flag exclusion must preserve post history');
+echo "Flag picker exclusion, rejected submissions, and retained history verified\n";
 echo "FORUM_TESTS_PASSED\n";
