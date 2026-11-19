@@ -43,6 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: python3 -m unittest discover -s tests/deploy -v
+      - run: bash -n scripts/deploy/install-server
       - run: python3 -m py_compile scripts/deploy/server.py scripts/deploy/build-release.py
   package:
     needs: [checks, mariadb-migration, deployment-tests]

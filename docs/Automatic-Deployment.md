@@ -55,7 +55,7 @@ protect master and review changes as production code.
    WordPress posts, taxonomy tables, and forum usermeta, plus forum settings hashes.
    Hash forum upload contents too. Replace only the staging plugin, migrate, and compare historical state and upload contents exactly.
    Exercise independent reaction add/remove in the clone using an existing administrator identity, then verify history again; no account is created and no password is requested or displayed.
-   load the fork alongside the site's other active plugins.
+   Load the fork alongside the site's other active plugins.
 4. Enable the MU maintenance guard; pause cron and stop/drain Apache. Export a
    fresh database backup, archive forum uploads, and retain the previous plugin.
    No native forum table, settings, users, shortcode page, or uploads are replaced
