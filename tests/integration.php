@@ -1,6 +1,8 @@
 <?php
 require_once '/wordpress/wp-load.php';
 global $wpdb, $asgarosforum;
+echo 'Actual runtime: WordPress '.get_bloginfo('version').' / PHP '.PHP_VERSION."\n";
+if (get_bloginfo('version') !== '6.8.3') throw new Exception('Unexpected WordPress version');
 if (!$asgarosforum || !$wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}forum_posts")) {
     throw new Exception('Plugin activation or sample forum initialization failed');
 }

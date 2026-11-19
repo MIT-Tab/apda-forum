@@ -12,7 +12,7 @@ const steps = [
 const server = await runCLI({
     command: 'server', php: '8.3', wp: '6.8.3', port: Number(process.env.FORUM_PORT || (testing ? 9401 : 9400)),
     'mount-before-install': [{ hostPath: root, vfsPath: '/wordpress/wp-content/plugins/asgaros-forum' }],
-    blueprint: { steps },
+    blueprint: { preferredVersions: { php: '8.3', wp: '6.8.3' }, steps },
     login: false, workers: 1
 });
 try {

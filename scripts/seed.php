@@ -5,6 +5,7 @@ global $wpdb, $asgarosforum;
 update_option('show_avatars', false);
 $options = get_option('asgarosforum_options');
 $options['enable_reactions'] = true;
+$options['enable_avatars'] = false;
 $options['reactions_show_names'] = true;
 update_option('asgarosforum_options', $options);
 $topic = $wpdb->get_var("SELECT id FROM {$wpdb->prefix}forum_topics LIMIT 1");
