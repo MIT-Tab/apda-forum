@@ -222,3 +222,26 @@ class VersionTests(unittest.TestCase):
         self.assertEqual(server.upstream_version('3.5.0-apda.1'), (3, 5, 0))
         self.assertGreater(server.upstream_version('3.5.1'), server.upstream_version('3.5.0-apda.1'))
         with self.assertRaises(RuntimeError): server.upstream_version('unknown')
+
+class BackupEncodingTests(unittest.TestCase):
+    def test_backup_explicitly_preserves_four_byte_unicode(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as folder:
+            deploy = server.Deployment.__new__(server.Deployment)
+            deploy.site = Path('/live/wordpress')
+            def fake_wp(site, *args, stdout=None):
+                self.assertIn('--default-character-set=utf8mb4', args)
+                self.assertIn('--lock-tables=true', args)
+                stdout.write(('😀 historic text\n' * 100).encode())
+            deploy.wp = fake_wp
+            path = Path(folder) / 'database.sql'
+            deploy.dump(path)
+            self.assertIn('😀', path.read_text())
+
+    def test_import_explicitly_preserves_four_byte_unicode(self):
+        from unittest.mock import Mock
+        deploy = server.Deployment.__new__(server.Deployment)
+        deploy.stage_wp = Path('/private/staging')
+        deploy.run = Mock()
+        deploy.wp(Path('/live/wordpress'), 'db', 'import', '-')
+        self.assertIn('--default-character-set=utf8mb4', deploy.run.call_args.args[0])

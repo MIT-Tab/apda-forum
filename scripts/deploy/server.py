@@ -157,6 +157,8 @@ class Deployment:
             command.append('--skip-plugins')
         env = os.environ.copy()
         env['APDA_DEPLOY_ACTION'] = action or 'snapshot'
+        if args[:2] == ('db', 'import'):
+            args = args + ('--default-character-set=utf8mb4',)
         self.run(command + list(args), stdin=stdin, stdout=stdout, env=env)
 
     def snapshot(self, site, action='snapshot'):
@@ -175,7 +177,7 @@ class Deployment:
     def dump(self, destination):
         # --lock-tables is required: the production posts/topics tables are MyISAM.
         with destination.open('wb') as output:
-            self.wp(self.site, 'db', 'export', '-', '--lock-tables=true', '--add-drop-table', '--no-tablespaces=true', '--set-gtid-purged=OFF', stdout=output)
+            self.wp(self.site, 'db', 'export', '-', '--lock-tables=true', '--add-drop-table', '--no-tablespaces=true', '--set-gtid-purged=OFF', '--default-character-set=utf8mb4', stdout=output)
         if destination.stat().st_size < 1000:
             raise RuntimeError('Database backup is empty')
 
@@ -227,7 +229,7 @@ class Deployment:
             if config.exists():
                 config.unlink()
             self.wp(self.stage_wp, 'config', 'create', '--dbname=wordpress', '--dbuser=root', '--dbpass=',
-                    '--dbhost=localhost:'+str(self.socket), '--skip-check', '--skip-salts', '--force')
+                    '--dbhost=localhost:'+str(self.socket), '--dbcharset=utf8mb4', '--skip-check', '--skip-salts', '--force')
             # WP-CLI config create defaults to wp_; preserve the actual site's prefix.
             prefix = self.config['prefix']
             self.wp(self.stage_wp, 'config', 'set', 'table_prefix', prefix, '--type=variable')

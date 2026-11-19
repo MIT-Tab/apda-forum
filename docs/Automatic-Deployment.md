@@ -46,7 +46,7 @@ protect master and review changes as production code.
 ## Every deployment
 
 1. Verify the live plugin is active, the prefix/schema match, required database privileges exist, and its upstream version is not newer than the fork. Export a consistent database snapshot using table locks: live posts and topics
-   are MyISAM, so `--single-transaction` alone is insufficient.
+   are MyISAM, so `--single-transaction` alone is insufficient. All exports/imports and the staging config explicitly use `utf8mb4`, preserving four-byte Unicode independently of WP-CLI charset heuristics.
 2. Restore that snapshot into a separate local MySQL process using a private
    datadir/socket and no network listener. Copy WordPress files without production
    wp-config.php. Staging gets its own generated socket-only config. Staging PHP
@@ -102,6 +102,8 @@ credentials or private database contents. Diagnose failures through the private
 server logs without publishing their raw contents into public PR/Actions logs.
 
 ## Validation
+
+The native database CI job also runs `tests/deploy/mysql_unicode_roundtrip.py`, verifying four-byte Unicode, quotes, backslashes, and newlines survive a real MyISAM dump/import.
 
 Run `python3 -m unittest discover -s tests/deploy -v`, `npm run lint`,
 `npm run test:workflow`, and `npm test`. Deployment unit tests cover command and
