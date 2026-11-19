@@ -41,6 +41,15 @@ class AsgarosForumReactions {
         if ($this->asgarosforum->options['enable_reactions']) {
             // Allow filtering of reactions.
             $this->reactions_list = apply_filters('asgarosforum_reactions', $this->reactions_list);
+
+            // Keep flags out of both the picker and accepted reactions, including
+            // country pairs and subdivision/ZWJ sequences added by extensions.
+            $this->reactions_list = array_filter($this->reactions_list, function($reaction) {
+                return empty($reaction['emoji']) || !preg_match(
+                    '/[\x{26F3}\x{1F1E6}-\x{1F1FF}\x{1F38C}\x{1F3C1}\x{1F3F3}\x{1F3F4}\x{1F6A9}]/u',
+                    $reaction['emoji']
+                );
+            });
         }
     }
 
