@@ -1,0 +1,9 @@
+{
+  "site": "/var/www/html/apda.online/public_html",
+  "state": "/var/lib/apda-forum-deploy",
+  "prefix": "wp_",
+  "host": "apda.online",
+  "url": "https://apda.online/forum/",
+  "approved_schema": 65,
+  "enabled": false
+}

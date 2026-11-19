@@ -3,3 +3,4 @@
 - Never delete/uninstall the installed plugin to switch forks: uninstall.php destroys forum history and uploads.
 - Before handoff run `npm run lint`, `npm test`, and `npm run test:workflow`.
 - Use the skill's CI watcher once after pushing; do not manually poll CI.
+- For deployment changes also run `python3 -m unittest discover -s tests/deploy -v`; read `docs/Automatic-Deployment.md`. Never print private keys, GitHub secret values, database dumps, or production config contents.
