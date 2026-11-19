@@ -111,4 +111,5 @@ $reactions->initialize();
 forum_assert($before === $wpdb->get_results("SELECT * FROM {$wpdb->prefix}forum_posts", ARRAY_A), 'Flag exclusion must preserve post history');
 echo "Flag picker exclusion, rejected submissions, and retained history verified\n";
 require '/wordpress/wp-content/plugins/asgaros-forum/tests/results-profiles.php';
+require '/wordpress/wp-content/plugins/asgaros-forum/tests/account-login.php';
 echo "FORUM_TESTS_PASSED\n";

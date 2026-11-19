@@ -72,6 +72,7 @@ require 'widgets/widget-search.php';
 // Include integration files.
 require 'integrations/integration-mycred.php';
 require 'integrations/integration-results.php';
+require 'integrations/integration-account-login.php';
 
 // Include admin files.
 require 'admin/admin.php';
