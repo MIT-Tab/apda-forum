@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+slug="${1:?usage: start-task <kebab-case-slug>}"
+[[ $slug =~ ^[a-z0-9][a-z0-9-]*$ ]] || { echo "invalid slug" >&2; exit 2; }
+main="$(git rev-parse --show-toplevel)"
+wt="$(dirname "$main")/$(basename "$main")-$slug"
+[[ ! -e $wt ]] || { echo "worktree exists: $wt" >&2; exit 1; }
+git fetch -q origin master
+git worktree add -q --no-track -b "codex/$slug" "$wt" origin/master
+cd "$wt"
+npm ci --no-audit --no-fund > /tmp/forum-setup-$(printf %s "$wt" | cksum | cut -d' ' -f1).log 2>&1
+printf 'worktree: %s\n' "$wt"

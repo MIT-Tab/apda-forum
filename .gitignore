@@ -51,3 +51,8 @@ Temporary Items
 
 # Asgaros Forum
 custom.css
+
+node_modules/
+__pycache__/
+playwright-report/
+test-results/

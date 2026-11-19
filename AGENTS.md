@@ -1,0 +1,5 @@
+- For implementation work read and follow `.agents/skills/forum-task/SKILL.md`.
+- Keep production data and credentials out of local development. Use the private Playground site.
+- Never delete/uninstall the installed plugin to switch forks: uninstall.php destroys forum history and uploads.
+- Before handoff run `npm run lint`, `npm test`, and `npm run test:workflow`.
+- Use the skill's CI watcher once after pushing; do not manually poll CI.
