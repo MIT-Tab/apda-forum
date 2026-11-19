@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 
 class AsgarosForumDatabase {
     private $db;
-    private $db_version = 64;
+    private $db_version = 65;
     private $tables;
 
     public function __construct() {
@@ -172,7 +172,7 @@ class AsgarosForumDatabase {
             reaction varchar(20) NOT NULL default '',
             author_id int(11) NOT NULL default '0',
             datestamp datetime NOT NULL default '1000-01-01 00:00:00',
-            PRIMARY KEY  (post_id, user_id)
+            PRIMARY KEY  (post_id, user_id, reaction)
             ) $charset_collate;";
 
             $sql[] = 'CREATE TABLE '.$this->tables->polls." (
@@ -197,6 +197,28 @@ class AsgarosForumDatabase {
             ) $charset_collate;";
 
             require_once ABSPATH.'wp-admin/includes/upgrade.php';
+
+            if (!$first_time_installation && $database_version_installed < 65) {
+                // Expand uniqueness without deleting or rewriting any existing reaction.
+                $indexes = $this->db->get_results("SHOW INDEX FROM {$this->tables->reactions} WHERE Key_name = 'PRIMARY'");
+                if (empty($indexes)) {
+                    return;
+                }
+                $columns = array();
+                foreach ($indexes as $index) {
+                    $columns[] = $index->Column_name;
+                }
+                if ($columns === array('post_id', 'user_id')) {
+                    $result = $this->db->query("ALTER TABLE {$this->tables->reactions} DROP PRIMARY KEY, ADD PRIMARY KEY (post_id, user_id, reaction)");
+                    if ($result === false) {
+                        // Leave the version unchanged so the migration can be retried.
+                        return;
+                    }
+                } else if ($columns !== array('post_id', 'user_id', 'reaction')) {
+                    // Do not mark an unexpected schema as successfully migrated.
+                    return;
+                }
+            }
 
             dbDelta($sql);
 

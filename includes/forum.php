@@ -5,7 +5,7 @@ if (!defined('ABSPATH')) {
 }
 
 class AsgarosForum {
-    public $version               = '3.5.0';
+    public $version               = '3.5.0-apda.1';
     public $executePlugin         = false;
     public $db                    = null;
     public $tables                = null;
@@ -723,6 +723,7 @@ class AsgarosForum {
 				'root'    => esc_url_raw(rest_url()),
 				'nonce'   => wp_create_nonce('wp_rest'),
 				'topicid' => absint($this->current_topic),
+                'reactionError' => __('Could not update your reaction. Please try again.', 'asgaros-forum'),
 			)
 		);
 
