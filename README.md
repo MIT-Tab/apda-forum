@@ -59,3 +59,5 @@ site. Local login: **admin / password**. Ctrl-C stops it; restarting resets samp
 No Docker, system PHP, or production credentials required. See
 [the task skill](.agents/skills/forum-task/SKILL.md) for tests and PR workflow.
 For browser screenshots run `npx playwright install chromium` once.
+
+Production updates from master are described in [Automatic deployment](docs/Automatic-Deployment.md).

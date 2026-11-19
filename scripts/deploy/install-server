@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Run from a reviewed checkout on the WordPress server as root.
+# Optional first argument: the CI PUBLIC key file. Never supply a private key.
+set -euo pipefail
+[[ $(id -u) == 0 ]] || { echo 'Run this installer as root' >&2; exit 1; }
+source_dir="$(cd "$(dirname "$0")" && pwd)"
+for executable in /usr/local/bin/wp /usr/sbin/mysqld /usr/bin/mysql /usr/bin/mysqladmin /usr/bin/rsync /usr/bin/unshare; do
+  [[ -x $executable ]] || { echo "Missing prerequisite: $executable" >&2; exit 1; }
+done
+id -u apda-forum-stage >/dev/null 2>&1 || useradd --system --user-group --home-dir /nonexistent --shell /usr/sbin/nologin apda-forum-stage
+install -d -m 0755 /opt/apda-forum-deploy
+install -d -m 0711 /var/lib/apda-forum-deploy
+for file in server.py wp-state.php staging-mu.php production-guard.php; do
+  install -m 0644 "$source_dir/$file" "/opt/apda-forum-deploy/$file"
+done
+if [[ ! -f /etc/apda-forum-deploy.json ]]; then
+  install -m 0600 "$source_dir/config.example.json" /etc/apda-forum-deploy.json
+fi
+python3 - <<'PY'
+from pathlib import Path
+import json
+config=json.loads(Path('/etc/apda-forum-deploy.json').read_text())
+site=Path(config['site'])
+if not (site/'wp-config.php').is_file(): raise SystemExit('WordPress installation not found')
+mu=site/'wp-content/mu-plugins'
+mu.mkdir(exist_ok=True,mode=0o755)
+import shutil
+shutil.copyfile('/opt/apda-forum-deploy/production-guard.php',mu/'apda-deployment-guard.php')
+(mu/'apda-deployment-guard.php').chmod(0o644)
+PY
+if [[ -f /etc/apparmor.d/usr.sbin.mysqld ]] && command -v apparmor_parser >/dev/null; then
+  python3 - <<'PY'
+from pathlib import Path
+profile=Path('/etc/apparmor.d/usr.sbin.mysqld')
+if 'local/usr.sbin.mysqld' not in profile.read_text(): raise SystemExit('Review the MySQL AppArmor profile before installing')
+p=Path('/etc/apparmor.d/local/usr.sbin.mysqld')
+existing=p.read_text() if p.exists() else ''
+if '# APDA isolated deployment rehearsal' not in existing:
+    with p.open('a') as stream:
+        stream.write('\n# APDA isolated deployment rehearsal (Unix socket only)\n/var/lib/apda-forum-deploy/stage/ rw,\n/var/lib/apda-forum-deploy/stage/** rwk,\n')
+PY
+  apparmor_parser -r /etc/apparmor.d/usr.sbin.mysqld
+fi
+if [[ $# -gt 0 ]]; then
+  python3 - "$1" <<'PY'
+from pathlib import Path
+import sys
+key=Path(sys.argv[1]).read_text().strip()
+if not key.startswith('ssh-ed25519 ') or '\n' in key: raise SystemExit('Supply one Ed25519 PUBLIC key')
+p=Path('/root/.ssh/authorized_keys')
+existing=p.read_text() if p.exists() else ''
+if key.split()[1] not in existing:
+    with p.open('a') as stream:
+        stream.write('\nrestrict,command="/usr/bin/python3 /opt/apda-forum-deploy/server.py" '+key+'\n')
+p.chmod(0o600)
+PY
+fi
+printf 'Helpers installed. Production enablement remains controlled by /etc/apda-forum-deploy.json.\n'
