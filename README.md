@@ -50,3 +50,12 @@ Asgaros Forum is the perfect WordPress plugin if you want to extend your website
 
 ## License
 Asgaros Forum is [GPLv2 licensed](LICENSE)
+
+## APDA fork development
+
+Use Node 22+, then `npm ci` and `npm run dev`. Open http://127.0.0.1:9400/?page_id=4.
+WordPress Playground runs PHP 8.3 and WordPress 6.8.3 with a disposable private SQLite
+site. Local login: **admin / password**. Ctrl-C stops it; restarting resets sample data.
+No Docker, system PHP, or production credentials required. See
+[the task skill](.agents/skills/forum-task/SKILL.md) for tests and PR workflow.
+For browser screenshots run `npx playwright install chromium` once.

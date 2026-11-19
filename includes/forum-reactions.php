@@ -19,20 +19,37 @@ class AsgarosForumReactions {
     }
 
     public function initialize() {
-        // Build reactions-list.
-        $this->reactions_list['down'] = array(
-            'icon'               => 'fas fa-thumbs-down',
-            'screen_reader_text' => __('Click for thumbs down.', 'asgaros-forum'),
+        // Stable ASCII keys preserve existing votes and work with any database charset.
+        $emojis = array(
+            'up' => array('👍', __('Thumbs up', 'asgaros-forum')),
+            'down' => array('👎', __('Thumbs down', 'asgaros-forum')),
+            'heart' => array('❤️', __('Heart', 'asgaros-forum')),
+            'laugh' => array('😂', __('Laugh', 'asgaros-forum')),
+            'celebrate' => array('🎉', __('Celebrate', 'asgaros-forum')),
+            'surprised' => array('😮', __('Surprised', 'asgaros-forum')),
+            'sad' => array('😢', __('Sad', 'asgaros-forum')),
+            'thinking' => array('🤔', __('Thinking', 'asgaros-forum')),
+            'fire' => array('🔥', __('Fire', 'asgaros-forum')),
+            'eyes' => array('👀', __('Eyes', 'asgaros-forum')),
+            'clap' => array('👏', __('Clap', 'asgaros-forum')),
+            'hundred' => array('💯', __('Hundred', 'asgaros-forum')),
         );
+        foreach ($emojis as $key => $emoji) {
+            $this->reactions_list[$key] = array('emoji' => $emoji[0], 'screen_reader_text' => $emoji[1]);
+        }
 
-        $this->reactions_list['up'] = array(
-            'icon'               => 'fas fa-thumbs-up',
-            'screen_reader_text' => __('Click for thumbs up.', 'asgaros-forum'),
-        );
-        
         if ($this->asgarosforum->options['enable_reactions']) {
             // Allow filtering of reactions.
             $this->reactions_list = apply_filters('asgarosforum_reactions', $this->reactions_list);
+
+            // Keep flags out of both the picker and accepted reactions, including
+            // country pairs and subdivision/ZWJ sequences added by extensions.
+            $this->reactions_list = array_filter($this->reactions_list, function($reaction) {
+                return empty($reaction['emoji']) || !preg_match(
+                    '/[\x{26F3}\x{1F1E6}-\x{1F1FF}\x{1F38C}\x{1F3C1}\x{1F3F3}\x{1F3F4}\x{1F6A9}]/u',
+                    $reaction['emoji']
+                );
+            });
         }
     }
 
@@ -72,7 +89,7 @@ class AsgarosForumReactions {
                 array(
                     'methods'             => 'POST',
                     'callback'            => array($this, 'reaction_callback'),
-                    'permission_callback' => '__return_true',
+                    'permission_callback' => 'is_user_logged_in',
                 )
             );
         }
@@ -90,8 +107,8 @@ class AsgarosForumReactions {
             // Get post object.
             $post_object = $this->asgarosforum->content->get_post($post_id);
 
-            // Ensure that the post exists and that the current user is not the post-author.
-            if ($post_object && $this->asgarosforum->get_post_author($post_object->id) != get_current_user_id()) {
+            // Apply the same access checks as the forum before returning reaction names.
+            if ($post_object && $this->can_react($post_object)) {
                 // Load reactions.
                 $this->load_reactions($post_object->parent_id);
 
@@ -119,45 +136,70 @@ class AsgarosForumReactions {
         }
     }
 
-    // Renders all reactions.
-    public function render_reactions($post_id, $author_id) {
-        $reactions_output = '';
-
-        // Load existing reaction of the current user.
-        $reaction_exists = $this->reaction_exists($post_id, get_current_user_id());
-
-        // Render each reaction.
-        foreach ($this->reactions_list as $key => $reaction) {
-            // Set reaction-status.
-            $status = ($key == $reaction_exists) ? 'reaction-active' : 'reaction-inactive';
-
-            // Count reactions.
-            $counter = (isset($this->post_reactions[$post_id][$key])) ? number_format_i18n(count($this->post_reactions[$post_id][$key])) : 0;
-
-            // Generate reaction-HTML.
-            $output  = '<span class="reaction '.$key.'">';
-            $output .= '<span class="reaction-icon '.$reaction['icon'].' '.$status.'">';
-            $output .= '<span class="screen-reader-text">'.$reaction['screen_reader_text'].'</span>';
-            $output .= '</span>';
-            $output .= '<span class="reaction-number">'.$counter.'</span>';
-            $output .= '</span>';
-
-            // Wrap link around reaction if user is logged-in ...
-            if (is_user_logged_in()) {
-                $user_id = get_current_user_id();
-                // ... and if the current user is not the post-author ...
-                if ($author_id != $user_id) {
-                    // ... and if the current user is not banned.
-                    if (!$this->asgarosforum->permissions->isBanned($user_id)) {
-                        $output = '<a data-post-id="'.$post_id.'" data-reaction="'.$key.'" href="#">'.$output.'</a>';
-                    }
-                }
-            }
-
-            $reactions_output .= $output;
+    // Reaction access must also be enforced on direct REST requests.
+    private function can_react($post) {
+        $user_id = get_current_user_id();
+        if (!$this->asgarosforum->options['enable_reactions'] || !$user_id || $this->asgarosforum->permissions->isBanned($user_id)) {
+            return false;
         }
+        $topic = $this->asgarosforum->content->get_topic($post->parent_id);
+        $forum = $topic ? $this->asgarosforum->content->get_forum($topic->parent_id) : false;
+        if (!$forum || !$this->asgarosforum->permissions->can_access_category($user_id, $forum->parent_id)
+            || !AsgarosForumUserGroups::canUserAccessForumCategory($user_id, $forum->parent_id)
+            || !apply_filters('asgarosforum_filter_check_access', true, $forum->parent_id)) {
+            return false;
+        }
+        if (!$this->asgarosforum->permissions->isModerator($user_id)) {
+            if (!$topic->approved) {
+                return false;
+            }
+            if ($this->asgarosforum->private->is_private_forum($forum->id) && $topic->author_id != $user_id) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-        return $reactions_output;
+    private function reaction_icon($reaction) {
+        if (isset($reaction['emoji'])) {
+            return '<span class="reaction-emoji wp-exclude-emoji" aria-hidden="true">'.esc_html($reaction['emoji']).'</span>';
+        }
+        // Preserve the existing asgarosforum_reactions filter for icon-based extensions.
+        return '<i aria-hidden="true" class="'.esc_attr(isset($reaction['icon']) ? $reaction['icon'] : '').'"></i>';
+    }
+
+    public function render_reactions($post_id, $author_id) {
+        $output = '';
+        // Rendering already occurs inside an authorized topic; REST checks access separately.
+        $can_react = is_user_logged_in() && !$this->asgarosforum->permissions->isBanned(get_current_user_id());
+        foreach ($this->reactions_list as $key => $reaction) {
+            $users = isset($this->post_reactions[$post_id][$key]) ? $this->post_reactions[$post_id][$key] : array();
+            if (!$users) {
+                continue;
+            }
+            $active = in_array(get_current_user_id(), $users);
+            $label = $reaction['screen_reader_text'].' ('.number_format_i18n(count($users)).')';
+            $attributes = ' class="reaction-pill'.($active ? ' reaction-active' : '').'" aria-label="'.esc_attr($label).'"';
+            $attributes .= ' title="'.esc_attr($label).'"';
+            if ($can_react) {
+                $output .= '<button type="button"'.$attributes.' aria-pressed="'.($active ? 'true' : 'false').'" data-post-id="'.absint($post_id).'" data-reaction="'.esc_attr($key).'">';
+            } else {
+                $output .= '<span'.$attributes.'>';
+            }
+            $output .= $this->reaction_icon($reaction).'<span class="reaction-count">'.number_format_i18n(count($users)).'</span>';
+            $output .= $can_react ? '</button>' : '</span>';
+        }
+        if ($can_react) {
+            $output .= '<details class="reaction-picker"><summary aria-label="'.esc_attr__('Add reaction', 'asgaros-forum').'" title="'.esc_attr__('Add reaction', 'asgaros-forum').'"><span class="reaction-emoji wp-exclude-emoji" aria-hidden="true">🙂</span><span aria-hidden="true">+</span></summary>';
+            $output .= '<div class="reaction-picker-options" role="group" aria-label="'.esc_attr__('Choose a reaction', 'asgaros-forum').'">';
+            foreach ($this->reactions_list as $key => $reaction) {
+                $users = isset($this->post_reactions[$post_id][$key]) ? $this->post_reactions[$post_id][$key] : array();
+                $output .= '<button type="button" data-post-id="'.absint($post_id).'" data-reaction="'.esc_attr($key).'" aria-pressed="'.(in_array(get_current_user_id(), $users) ? 'true' : 'false').'" title="'.esc_attr($reaction['screen_reader_text']).'" aria-label="'.esc_attr($reaction['screen_reader_text']).'">'.$this->reaction_icon($reaction).'</button>';
+            }
+            $output .= '</div></details>';
+            $output .= '<span class="reaction-feedback" role="status" aria-live="polite"></span>';
+        }
+        return $output;
     }
 
     // Renders reactions-summary-area if the reactions-functionality is enabled.
@@ -182,11 +224,13 @@ class AsgarosForumReactions {
                 $reaction_names_grouped[$key] = array();
 
                 foreach ($this->post_reactions[$post_id][$key] as $userId) {
-                    $reaction_names[]               = $this->asgarosforum->get_plain_username($userId);
-                    $reaction_names_grouped[$key][] = $this->asgarosforum->get_plain_username($userId);
+                    $reaction_names[$userId]         = esc_html($this->asgarosforum->get_plain_username($userId));
+                    $reaction_names_grouped[$key][] = esc_html($this->asgarosforum->get_plain_username($userId));
                 }
             }
         }
+
+        $reaction_names = array_values($reaction_names);
 
         // Render summary and details.
         if (!empty($reaction_names)) {
@@ -210,7 +254,7 @@ class AsgarosForumReactions {
 
             foreach ($reaction_names_grouped as $reaction_name => $reaction_users) {
                 foreach ($reaction_users as $reaction_user) {
-                    $output .= '<span><i class="'.$this->reactions_list[$reaction_name]['icon'].'"></i>'.$reaction_user.'</span>';
+                    $output .= '<span>'.$this->reaction_icon($this->reactions_list[$reaction_name]).' '.$reaction_user.'</span>';
                 }
             }
 
@@ -247,32 +291,26 @@ class AsgarosForumReactions {
             return false;
         }
 
-        // Try to get existing reaction.
-        $reaction_check = $this->reaction_exists($post_id, $user_id);
-
-        // Add reaction when there is none.
-        if ($reaction_check === false) {
-            $this->add_reaction($post_id, $user_id, $reaction, $author_id);
+        $post = $this->asgarosforum->content->get_post($post_id);
+        if ($user_id != get_current_user_id() || !$post || !$this->can_react($post)) {
+            return false;
         }
-
-        // Remove reaction when it is already set.
-        if ($reaction_check === $reaction) {
-            $this->remove_reaction($post_id, $user_id, $reaction);
+        // Check the exact emoji in the database, not a cached first reaction.
+        $exists = $this->asgarosforum->db->get_var($this->asgarosforum->db->prepare(
+            "SELECT user_id FROM {$this->asgarosforum->tables->reactions} WHERE post_id = %d AND user_id = %d AND reaction = %s",
+            $post_id, $user_id, $reaction
+        ));
+        if ($exists !== null) {
+            return $this->remove_reaction($post_id, $user_id, $reaction);
         }
-
-        // Update reaction when it is different.
-        if ($reaction_check !== $reaction) {
-            $this->update_reaction($post_id, $user_id, $reaction);
-        }
-
-        return true;
+        return $this->add_reaction($post_id, $user_id, $reaction, $post->author_id);
     }
 
     public function add_reaction($post_id, $user_id, $reaction, $author_id) {
 		// Get the current time.
         $date = $this->asgarosforum->current_time();
 
-        $this->asgarosforum->db->insert($this->asgarosforum->tables->reactions, array(
+        $result = $this->asgarosforum->db->insert($this->asgarosforum->tables->reactions, array(
 			'post_id'   => $post_id,
 			'user_id'   => $user_id,
 			'reaction'  => $reaction,
@@ -280,33 +318,31 @@ class AsgarosForumReactions {
 			'datestamp' => $date,
 		), array('%d', '%d', '%s', '%d', '%s'));
 
+        if ($result === false) {
+            return false;
+        }
         do_action('asgarosforum_after_add_reaction', $post_id, $user_id, $reaction);
+        return true;
     }
 
     public function remove_reaction($post_id, $user_id, $reaction) {
 
-        $this->asgarosforum->db->delete($this->asgarosforum->tables->reactions, array(
+        $result = $this->asgarosforum->db->delete($this->asgarosforum->tables->reactions, array(
 			'post_id'  => $post_id,
 			'user_id'  => $user_id,
 			'reaction' => $reaction,
 		), array('%d', '%d', '%s'));
 
+        if ($result === false) {
+            return false;
+        }
         do_action('asgarosforum_after_remove_reaction', $post_id, $user_id, $reaction);
+        return true;
     }
 
+    // Backwards-compatible entrypoint: add this emoji without overwriting other reactions.
     public function update_reaction($post_id, $user_id, $reaction) {
-		// Get the current time.
-        $date = $this->asgarosforum->current_time();
-
-        $this->asgarosforum->db->update($this->asgarosforum->tables->reactions, array(
-			'reaction'  => $reaction,
-			'datestamp' => $date,
-		), array(
-			'post_id' => $post_id,
-			'user_id' => $user_id,
-		), array('%s', '%s'), array('%d', '%d'));
-
-        do_action('asgarosforum_after_update_reaction', $post_id, $user_id, $reaction);
+        return $this->reaction_change($post_id, $user_id, $reaction, 0);
     }
 
     // Removes all reactions from a specific post.

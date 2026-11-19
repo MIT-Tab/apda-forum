@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+[ $# -gt 0 ] || { echo "usage: pr-images docs/img/<slug>/*.png" >&2; exit 2; }
+for path in "$@"; do
+  [[ $path == docs/img/* && $path != *..* && -f $path ]] || { echo "invalid image: $path" >&2; exit 2; }
+done
+git add -- "$@"
+git diff --cached --quiet -- "$@" || git commit -m "Add PR screenshots" -- "$@"
+git push -u origin HEAD
+sha="$(git rev-parse HEAD)"
+for path in "$@"; do
+  printf '![%s](https://raw.githubusercontent.com/MIT-Tab/apda-forum/%s/%s)\n' "$(basename "$path" .png)" "$sha" "$path"
+done

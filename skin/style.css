@@ -1636,43 +1636,76 @@
 
 /* REACTIONS */
 #af-wrapper .post-reactions {
-	float: left;
-	cursor: default;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    float: left;
+    max-width: 100%;
 }
-#af-wrapper .post-reactions .reaction {
-	color: #888;
+#af-wrapper .reaction-pill,
+#af-wrapper .reaction-picker summary {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 3px 10px;
+    border: 1px solid #c9ced8;
+    border-radius: 18px;
+    background: #f2f3f5;
+    color: #303442;
+    font: inherit;
+    font-style: normal;
+    font-size: 14px;
+    line-height: 24px;
+    cursor: pointer;
 }
-#af-wrapper .post-reactions .reaction-icon:before {
-	display: inline-block;
-	min-width: 20px;
-	font-size: 14px;
+#af-wrapper .reaction-pill.reaction-active {
+    border-color: #5865f2;
+    background: #e8eaff;
+    color: #343eb0;
 }
-#af-wrapper .post-reactions .reaction-number {
-	display: inline-block;
-	min-width: 20px;
-	text-align: center;
-	font-weight: bold;
-	font-style: italic;
-	margin-right: 8px;
+#af-wrapper .reaction-pill:hover,
+#af-wrapper .reaction-picker summary:hover { border-color: #5865f2; }
+#af-wrapper .reaction-pill:focus-visible,
+#af-wrapper .reaction-picker summary:focus-visible,
+#af-wrapper .reaction-picker button:focus-visible { outline: 2px solid #5865f2; outline-offset: 2px; }
+#af-wrapper .reaction-emoji { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-size: 19px; line-height: 24px; }
+#af-wrapper .reaction-feedback { color: #b32d2e; font-style: normal; width: 100%; }
+#af-wrapper .reaction-feedback:empty { display: none; }
+#af-wrapper .reaction-count { font-weight: 600; }
+#af-wrapper .reaction-picker { position: relative; }
+#af-wrapper .reaction-picker summary { list-style: none; }
+#af-wrapper .reaction-picker summary::-webkit-details-marker { display: none; }
+#af-wrapper .reaction-picker-options {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    inset-inline-start: 0;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: repeat(4, 40px);
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid #c9ced8;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 4px 18px #0002;
 }
-#af-wrapper .post-reactions a {
-	display: inline-block;
+#af-wrapper .reaction-picker:not([open]) .reaction-picker-options { display: none; }
+#af-wrapper .reaction-picker button {
+    width: 40px;
+    height: 40px;
+    padding: 4px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
 }
-#af-wrapper .post-reactions a:hover {
-	transform: scale(1.3);
-	transform-origin: center;
-	transition: all 0.3s;
-}
-#af-wrapper .post-reactions a:hover .down,
-#af-wrapper .post-reactions .down .reaction-number,
-#af-wrapper .post-reactions .down .reaction-active {
-	color: rgba(255, 0, 0, 0.75);
-}
-#af-wrapper .post-reactions a:hover .up,
-#af-wrapper .post-reactions .up .reaction-number,
-#af-wrapper .post-reactions .up .reaction-active {
-	color: rgba(0, 128, 0, 0.75);
-}
+#af-wrapper .reaction-picker button:hover,
+#af-wrapper .reaction-picker button[aria-pressed="true"] { background: #e8eaff; border-color: #5865f2; }
+#af-wrapper .post-reactions[aria-busy="true"] { opacity: .65; }
 #af-wrapper .post-reactions-summary .reaction-names {
 	border: 1px solid #eee;
 	display: block;
