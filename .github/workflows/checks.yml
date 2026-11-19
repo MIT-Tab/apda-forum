@@ -13,4 +13,25 @@ jobs:
       - run: find . -path ./node_modules -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l
       - run: npm run lint
       - run: npm run test:workflow
+      - run: npx playwright install --with-deps chromium
       - run: npm test
+        env:
+          FORUM_BROWSER_TESTS: 1
+  mariadb-migration:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: local-test-only
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y mariadb-client
+      - run: python3 tests/mariadb-migration.py
+        env:
+          MYSQL_TEST_COMMAND: mariadb -h 127.0.0.1 -P 3306 -u root
+          MYSQL_PWD: local-test-only

@@ -5,27 +5,64 @@ window.FontAwesomeConfig = {
 
 (function($) {
     $(document).ready(function() {
-        // Handle click on reaction-icon.
-        $(document).on('click', '#af-wrapper .post-reactions a', function(e) {
+        // Serialize changes per post so rapid clicks cannot overwrite a newer response.
+        $(document).on('click', '#af-wrapper .post-reactions button[data-reaction]', function(e) {
             e.preventDefault();
-
-            // Get relevant data first.
-            var post_id  = $(this).attr('data-post-id');
+            var post_id = $(this).attr('data-post-id');
             var reaction = $(this).attr('data-reaction');
-
+            var area = $(this).closest('.post-reactions');
+            if (area.attr('aria-busy') === 'true') return;
+            area.attr('aria-busy', 'true').find('button').prop('disabled', true);
+            area.find('.reaction-feedback').text('');
             $.ajax({
                 url: wpApiSettings.root+'asgaros-forum/v1/reaction/'+post_id+'/'+reaction,
                 method: 'POST',
-                beforeSend: function (xhr) {
+                beforeSend: function(xhr) {
                     xhr.setRequestHeader('X-WP-Nonce', wpApiSettings.nonce);
                 }
-            })
-            .done(function(response) {
+            }).done(function(response) {
                 if (response.status === true) {
-                    $('#af-wrapper #postid-'+post_id+' .post-reactions').html(response.data.reactions);
+                    area.html(response.data.reactions);
                     $('#af-wrapper #postid-'+post_id+' .post-reactions-summary').html(response.data.summary);
+                    var focus = area.find('.reaction-pill[data-reaction="'+reaction+'"]');
+                    if (!focus.length) focus = area.find('summary');
+                    focus.trigger('focus');
+                } else {
+                    area.find('.reaction-feedback').text(wpApiSettings.reactionError);
                 }
+            }).fail(function() {
+                area.find('.reaction-feedback').text(wpApiSettings.reactionError);
+            }).always(function() {
+                area.removeAttr('aria-busy').find('button').prop('disabled', false);
             });
+        });
+        $(document).on('click', function(e) {
+            $('#af-wrapper .reaction-picker[open]').each(function() {
+                if (!this.contains(e.target)) this.open = false;
+            });
+        });
+        // Keep the picker inside the forum on narrow screens and at row edges.
+        function positionReactionPickers() {
+            $('#af-wrapper .reaction-picker[open]').each(function() {
+                var options = $(this).find('.reaction-picker-options')[0];
+                options.style.transform = '';
+                var bounds = options.getBoundingClientRect();
+                var forum = this.closest('#af-wrapper').getBoundingClientRect();
+                var left = Math.max(8, forum.left);
+                var right = Math.min(window.innerWidth - 8, forum.right);
+                var shift = Math.max(left - bounds.left, Math.min(0, right - bounds.right));
+                options.style.transform = 'translateX('+shift+'px)';
+            });
+        }
+        document.addEventListener('toggle', function(e) {
+            if ($(e.target).is('#af-wrapper .reaction-picker')) positionReactionPickers();
+        }, true);
+        $(window).on('resize', positionReactionPickers);
+        $(document).on('keydown', '#af-wrapper .reaction-picker', function(e) {
+            if (e.key === 'Escape') {
+                this.open = false;
+                $(this).find('summary').trigger('focus');
+            }
         });
 
         $(document).on('click', '#af-wrapper .post-reactions-summary', function(e) {

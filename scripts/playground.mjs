@@ -21,6 +21,10 @@ try {
         const output = new TextDecoder().decode(result.bytes);
         console.log(output);
         if (result.exitCode !== 0 || !output.includes('FORUM_TESTS_PASSED')) throw new Error('WordPress integration checks failed: ' + result.errors);
+        if (process.env.FORUM_BROWSER_TESTS === '1') {
+            process.env.FORUM_URL = server.serverUrl;
+            await import('../tests/browser.mjs');
+        }
     } else {
         const result = await server.playground.run({ code: "<?php require '/wordpress/wp-load.php'; echo get_option('asgarosforum_options')['location'];" });
         const page = new TextDecoder().decode(result.bytes).trim();
