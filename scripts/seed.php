@@ -1,6 +1,8 @@
 <?php
 require_once '/wordpress/wp-load.php';
 global $wpdb, $asgarosforum;
+// Keep the disposable fixture independent of remote Gravatar requests.
+update_option('show_avatars', false);
 $options = get_option('asgarosforum_options');
 $options['enable_reactions'] = true;
 $options['reactions_show_names'] = true;
