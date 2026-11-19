@@ -33,6 +33,15 @@ class AsgarosForumReactions {
             'eyes' => array('👀', __('Eyes', 'asgaros-forum')),
             'clap' => array('👏', __('Clap', 'asgaros-forum')),
             'hundred' => array('💯', __('Hundred', 'asgaros-forum')),
+            'grin' => array('😆', __('Grinning squinting face', 'asgaros-forum')),
+            'sob' => array('😭', __('Loudly crying face', 'asgaros-forum')),
+            'diamond' => array('💎', __('Gem stone', 'asgaros-forum')),
+            'speak' => array('🗣️', __('Speaking head', 'asgaros-forum')),
+            'vote' => array('🗳️', __('Ballot box', 'asgaros-forum')),
+            'check' => array('✅', __('Check mark button', 'asgaros-forum')),
+            'cross' => array('❌', __('Cross mark', 'asgaros-forum')),
+            'angry' => array('😡', __('Angry face', 'asgaros-forum')),
+            'skull' => array('💀', __('Skull', 'asgaros-forum')),
         );
         foreach ($emojis as $key => $emoji) {
             $this->reactions_list[$key] = array('emoji' => $emoji[0], 'screen_reader_text' => $emoji[1]);
@@ -190,7 +199,7 @@ class AsgarosForumReactions {
             $output .= $can_react ? '</button>' : '</span>';
         }
         if ($can_react) {
-            $output .= '<details class="reaction-picker"><summary aria-label="'.esc_attr__('Add reaction', 'asgaros-forum').'" title="'.esc_attr__('Add reaction', 'asgaros-forum').'"><span class="reaction-emoji wp-exclude-emoji" aria-hidden="true">🙂</span><span aria-hidden="true">+</span></summary>';
+            $output .= '<details class="reaction-picker"><summary aria-label="'.esc_attr__('Add reaction', 'asgaros-forum').'" title="'.esc_attr__('Add reaction', 'asgaros-forum').'"><span aria-hidden="true">+</span></summary>';
             $output .= '<div class="reaction-picker-options" role="group" aria-label="'.esc_attr__('Choose a reaction', 'asgaros-forum').'">';
             foreach ($this->reactions_list as $key => $reaction) {
                 $users = isset($this->post_reactions[$post_id][$key]) ? $this->post_reactions[$post_id][$key] : array();
