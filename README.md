@@ -1,3 +1,14 @@
+# APDA Forum
+
+This repository contains the complete WordPress plugin that powers the
+[APDA Forum](https://apda.online/forum/). It is APDA's fork of Asgaros Forum.
+
+This is also the starting point for all CI-based management of the APDA Forum.
+[GitHub Actions](https://github.com/MIT-Tab/apda-forum/actions) runs validation,
+packages the plugin, and deploys approved changes to production. See the
+[deployment runbook](docs/Automatic-Deployment.md) for the workflow, manual retry,
+and recovery procedures.
+
 <p align="center"><a href="https://asgaros.com" target="_blank" rel="noopener noreferrer"><img src="admin/images/logo.png" alt="Asgaros Forum"></a></p>
 
 [![WordPress Plugin Version](https://img.shields.io/wordpress/plugin/v/asgaros-forum)](https://wordpress.org/plugins/asgaros-forum/)
@@ -39,7 +50,7 @@ Asgaros Forum is the perfect WordPress plugin if you want to extend your website
 * Multisite Compatibility
 * myCRED Integration
 
-## Installation
+## Upstream installation
 * Download `Asgaros Forum`
 * Activate the plugin via the `Plugins` screen in WordPress
 * A new forum-page is automatically created during the installation
