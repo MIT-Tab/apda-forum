@@ -18,6 +18,13 @@ try {
     await page.goto(topic, { waitUntil: 'domcontentloaded' });
     const area = page.locator('.post-reactions').first();
     await expect(area.locator('summary')).toHaveText('+');
+    await expect(area.locator('.reaction-vote')).toHaveCount(2);
+    await expect(area.locator('.reaction-vote i.fa-thumbs-up')).toHaveCount(1);
+    await expect(area.locator('.reaction-vote i.fa-thumbs-down')).toHaveCount(1);
+    await expect(area.locator('.reaction-picker button[data-reaction="up"]')).toHaveCount(0);
+    expect(await area.locator(':scope > *').evaluateAll(nodes => nodes.slice(0, 3).map(node => node.className))).toEqual([
+        expect.stringContaining('reaction-down'), expect.stringContaining('reaction-up'), 'reaction-picker'
+    ]);
     const requested = ['😆', '😭', '❤️', '💎', '🗣️', '🗳️', '✅', '❌', '😡', '💀'];
     for (const emoji of requested) {
         await expect(area.locator('.reaction-picker button').filter({ hasText: emoji })).toHaveCount(1);
@@ -27,9 +34,10 @@ try {
         await expect(area).not.toHaveAttribute('aria-busy', 'true');
     }
     async function choose(key) {
-        await area.locator('summary').click();
+        const vote = ['up', 'down'].includes(key);
+        if (!vote) await area.locator('summary').click();
         const response = page.waitForResponse(r => r.url().includes(`/reaction/1/${key}`));
-        await area.locator(`.reaction-picker button[data-reaction="${key}"]`).click();
+        await area.locator(vote ? `.reaction-vote[data-reaction="${key}"]` : `.reaction-picker button[data-reaction="${key}"]`).click();
         const result = await response;
         expect((await result.json()).status).toBe(true);
         await expect(area).not.toHaveAttribute('aria-busy', 'true');
@@ -58,6 +66,10 @@ try {
     await expect(area.locator('.reaction-feedback')).toContainText('Could not update');
     await expect(area.locator('.reaction-pill[data-reaction="up"]')).toBeEnabled();
     await page.unroute('**/asgaros-forum/v1/reaction/**');
+    await choose('down');
+    await expect(area.locator('.reaction-vote[data-reaction="down"]')).toHaveAttribute('aria-pressed', 'true');
+    await choose('down');
+    await expect(area.locator('.reaction-vote[data-reaction="down"] .reaction-count')).toHaveText('0');
     await choose('eyes');
     await area.locator('.reaction-pill[data-reaction="eyes"]').click();
     await expect(area).not.toHaveAttribute('aria-busy', 'true');
@@ -67,12 +79,15 @@ try {
     const desktopPicker = await area.locator('.reaction-picker-options').boundingBox();
     const postBounds = await page.locator('#postid-1').boundingBox();
     expect(desktopPicker.y).toBeGreaterThanOrEqual(postBounds.y);
+    await page.keyboard.press('Escape');
     await page.locator('#af-wrapper').screenshot({ path: `${screenshotDir}/desktop.png` });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(100);
+    await area.locator('summary').click();
     const picker = await area.locator('.reaction-picker-options').boundingBox();
     expect(picker.x).toBeGreaterThanOrEqual(0);
     expect(picker.x + picker.width).toBeLessThanOrEqual(390);
+    await page.keyboard.press('Escape');
     await page.locator('#af-wrapper').screenshot({ path: `${screenshotDir}/mobile.png` });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(overflow).toBe(false);
