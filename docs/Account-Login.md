@@ -1,14 +1,16 @@
 # WordPress/results login continuation
 
 The account-login integration preserves the authorization-code continuation when
-a successful WordPress login came from results.apda.online. It runs after LoginWP
-and restricts the exception to the same-site `/oauth/authorize` path with client
-ID, state, and the exact results callback. It does not enable general redirect
-overrides or modify OAuth client settings, user accounts, or authentication salts.
+a successful WordPress login came from results.apda.online. WP OAuth Server
+can build its return URL using either the WordPress site URL or the public home
+URL. The integration normalizes these to the public `/oauth/authorize` endpoint
+and carries the complete OAuth query in the hidden login URL. The exception
+requires a client ID, state, and the exact Results callback.
 
-This fixes the flow where LoginWP sends a newly authenticated user to WordPress's
-homepage instead of back to results. The OAuth provider must still validate the
-client/callback and results must validate OAuth state normally.
+The integration preserves that continuation both after LoginWP runs and when
+WPS Hide Login redirects a user whose WordPress session already exists. The
+OAuth provider validates the client and callback, and Results validates OAuth
+state.
 
 ## Diagnosing callback failures
 
