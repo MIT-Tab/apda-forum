@@ -1,5 +1,12 @@
 # Automatic forum deployment
 
+The APDA Forum repository contains the full WordPress plugin and is the entry
+point for CI-based management of the APDA Forum. The
+[`checks.yml` workflow](../.github/workflows/checks.yml) defines validation,
+release packaging, and production deployment. Use the repository's
+[Actions tab](https://github.com/MIT-Tab/apda-forum/actions) to inspect checks,
+review deployment results, or retry a release from `master`.
+
 Merges to `master` run the existing PHP/WordPress, Playwright, permission, and
 MariaDB checks plus deployment safety tests. A separate clean checkout builds one
 ZIP and manifest for that exact commit. The package is retained as a GitHub
