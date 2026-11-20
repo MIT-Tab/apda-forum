@@ -179,33 +179,53 @@ class AsgarosForumReactions {
 
     public function render_reactions($post_id, $author_id) {
         $output = '';
+        $votes = '';
         // Rendering already occurs inside an authorized topic; REST checks access separately.
         $can_react = is_user_logged_in() && !$this->asgarosforum->permissions->isBanned(get_current_user_id());
-        foreach ($this->reactions_list as $key => $reaction) {
+        foreach (array_unique(array_merge(array('down', 'up'), array_keys($this->reactions_list))) as $key) {
+            if (!isset($this->reactions_list[$key])) {
+                continue;
+            }
+            $reaction = $this->reactions_list[$key];
             $users = isset($this->post_reactions[$post_id][$key]) ? $this->post_reactions[$post_id][$key] : array();
-            if (!$users) {
+            $is_vote = in_array($key, array('up', 'down'), true);
+            if (!$users && !$is_vote) {
                 continue;
             }
             $active = in_array(get_current_user_id(), $users);
             $label = $reaction['screen_reader_text'].' ('.number_format_i18n(count($users)).')';
-            $attributes = ' class="reaction-pill'.($active ? ' reaction-active' : '').'" aria-label="'.esc_attr($label).'"';
+            $attributes = ' class="reaction-pill'.($is_vote ? ' reaction-vote reaction-'.$key : '').($active ? ' reaction-active' : '').'" aria-label="'.esc_attr($label).'"';
             $attributes .= ' title="'.esc_attr($label).'"';
             if ($can_react) {
-                $output .= '<button type="button"'.$attributes.' aria-pressed="'.($active ? 'true' : 'false').'" data-post-id="'.absint($post_id).'" data-reaction="'.esc_attr($key).'">';
+                $item = '<button type="button"'.$attributes.' aria-pressed="'.($active ? 'true' : 'false').'" data-post-id="'.absint($post_id).'" data-reaction="'.esc_attr($key).'">';
             } else {
-                $output .= '<span'.$attributes.'>';
+                $item = '<span'.$attributes.'>';
             }
-            $output .= $this->reaction_icon($reaction).'<span class="reaction-count">'.number_format_i18n(count($users)).'</span>';
-            $output .= $can_react ? '</button>' : '</span>';
+            $icon = $is_vote ? '<i aria-hidden="true" class="fas fa-thumbs-'.esc_attr($key).'"></i>' : $this->reaction_icon($reaction);
+            $item .= $icon.'<span class="reaction-count">'.number_format_i18n(count($users)).'</span>';
+            $item .= $can_react ? '</button>' : '</span>';
+            if ($is_vote) {
+                $votes .= $item;
+            } else {
+                $output .= $item;
+            }
         }
+        $other_reactions = $output;
+        $output = $votes;
         if ($can_react) {
             $output .= '<details class="reaction-picker"><summary aria-label="'.esc_attr__('Add reaction', 'asgaros-forum').'" title="'.esc_attr__('Add reaction', 'asgaros-forum').'"><span aria-hidden="true">+</span></summary>';
             $output .= '<div class="reaction-picker-options" role="group" aria-label="'.esc_attr__('Choose a reaction', 'asgaros-forum').'">';
             foreach ($this->reactions_list as $key => $reaction) {
+                if (in_array($key, array('up', 'down'), true)) {
+                    continue;
+                }
                 $users = isset($this->post_reactions[$post_id][$key]) ? $this->post_reactions[$post_id][$key] : array();
                 $output .= '<button type="button" data-post-id="'.absint($post_id).'" data-reaction="'.esc_attr($key).'" aria-pressed="'.(in_array(get_current_user_id(), $users) ? 'true' : 'false').'" title="'.esc_attr($reaction['screen_reader_text']).'" aria-label="'.esc_attr($reaction['screen_reader_text']).'">'.$this->reaction_icon($reaction).'</button>';
             }
             $output .= '</div></details>';
+        }
+        $output .= $other_reactions;
+        if ($can_react) {
             $output .= '<span class="reaction-feedback" role="status" aria-live="polite"></span>';
         }
         return $output;

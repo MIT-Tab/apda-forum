@@ -34,7 +34,8 @@ forum_assert($reactions->reaction_change($post->id, 1, 'heart', 1), 'Second emoj
 forum_assert($wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}forum_reactions") == 2, 'Multiple emojis must coexist');
 $reactions->load_reactions($topic->id);
 $html = $reactions->render_reactions($post->id, 1);
-forum_assert(substr_count($html, 'class="reaction-pill reaction-active"') === 2, 'Both emojis should be highlighted');
+forum_assert(preg_match_all('/class="reaction-pill[^"]*reaction-active"/', $html) === 2, 'Both emojis should be highlighted');
+forum_assert(strpos($html, 'fa-thumbs-down') !== false && strpos($html, 'fa-thumbs-up') !== false, 'Both classic vote controls must remain visible, including zero counts');
 forum_assert(strpos($html, 'aria-pressed="true"') !== false, 'Accessible pressed state');
 forum_assert(strpos($reactions->render_reactions_summary($post->id), 'has reacted') !== false, 'Summary must count each person once');
 forum_assert($reactions->reaction_change($post->id, 1, 'heart', 1), 'Toggle heart off');
