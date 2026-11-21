@@ -41,7 +41,7 @@ forum URL, and explicitly approved schema. Initial installation sets `enabled`
 to false. After a successful rehearsal, the operator enables deployments. Schema
 65 is approved for the initial 64→65 cutover. A future schema version is rejected
 before touching production until explicitly reviewed and approved on the server.
-The helper currently supports the rehearsed schema-64→65 transition and schema-65 code updates. Future migrations require review of the server helper as well as its schema approval. Multisite is rejected rather than partly migrated.
+The helper supports schemas 64–66. Before the schema-66 release, install the updated operator helper and explicitly approve schema 66 in the root-owned deployment configuration. The rehearsal requires unchanged historical rows, an empty tournament publication table on first installation, and InnoDB for the three tables used to publish a tournament post. Multisite requires a separate deployment procedure.
 
 The CI key accepts only `status`, `rehearse <40-character-commit> <zip-sha256>`,
 and `deploy <40-character-commit> <zip-sha256>`. The ZIP arrives on standard input.
@@ -52,8 +52,7 @@ protect master and review changes as production code.
 
 ## Every deployment
 
-1. Verify the live plugin is active, the prefix/schema match, required database privileges exist, and its upstream version is not newer than the fork. Export a consistent database snapshot using table locks: live posts and topics
-   are MyISAM, so `--single-transaction` alone is insufficient. All exports/imports and the staging config explicitly use `utf8mb4`, preserving four-byte Unicode independently of WP-CLI charset heuristics.
+1. Verify the live plugin is active, the prefix/schema match, required database privileges exist, and its upstream version is not newer than the fork. Export a consistent database snapshot using table locks, including any tables that still use MyISAM. All exports/imports and the staging config explicitly use `utf8mb4`, preserving four-byte Unicode independently of WP-CLI charset heuristics.
 2. Restore that snapshot into a separate local MySQL process using a private
    datadir/socket and no network listener. Copy WordPress files without production
    wp-config.php. Staging gets its own generated socket-only config. Staging PHP
@@ -101,7 +100,7 @@ For manual recovery, use the existing operator SSH agent. First stop writers and
 identify the recorded deployment backup. Restore a database only if new writes
 have not been accepted or have been reconciled. An old upstream plugin expects
 schema 64; do not replace PHP alone to undo the expanded reaction key. To roll back
-a code-only change after writes resume, redeploy the retained, compatible schema-65
+a code-only change after writes resume, redeploy a retained plugin build compatible with the active schema
 plugin artifact through the same rehearsal/checks rather than restoring old SQL.
 
 The helper's `status` command reports only release metadata. It does not print

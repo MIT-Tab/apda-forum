@@ -72,6 +72,7 @@ require 'widgets/widget-search.php';
 // Include integration files.
 require 'integrations/integration-mycred.php';
 require 'integrations/integration-results.php';
+require 'integrations/integration-tournament-posts.php';
 require 'integrations/integration-account-login.php';
 
 // Include admin files.
@@ -80,6 +81,7 @@ require 'admin/tables/admin-structure-table.php';
 require 'admin/tables/admin-usergroups-table.php';
 
 $asgarosforum = new AsgarosForum();
+new APDATournamentPosts($asgarosforum);
 
 if (is_admin()) {
     $asgarosforum_admin = new AsgarosForumAdmin($asgarosforum);

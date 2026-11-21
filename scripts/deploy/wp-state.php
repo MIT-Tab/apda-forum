@@ -41,7 +41,9 @@ if ($mode === 'migrate' || $mode === 'smoke') {
     AsgarosForumContent::initialize_taxonomy();
     $database = new AsgarosForumDatabase();
     $database->buildDatabase();
-    if ((int)get_option('asgarosforum_db_version') !== 65) throw new Exception('Expected schema 65');
+    // The installed helper also supports rollback to the schema-65 plugin.
+    $expected = method_exists($database, 'schema_version') ? $database->schema_version() : 65;
+    if ((int)get_option('asgarosforum_db_version') !== $expected) throw new Exception('Unexpected forum schema after migration');
     if ($mode === 'smoke') {
         // Reuse an identity only inside the clone; never create/delete accounts or
         // risk reusing a deleted historical author's numeric ID.
@@ -82,6 +84,13 @@ require_once ABSPATH.'wp-admin/includes/plugin.php';
 $plugin_metadata = get_plugin_data(WP_PLUGIN_DIR.'/asgaros-forum/asgaros-forum.php', false, false);
 $state = array('version' => $plugin_metadata['Version'], 'schema' => (int)get_option('asgarosforum_db_version'), 'multisite' => is_multisite(), 'prefix' => $wpdb->prefix, 'tables' => array());
 foreach ($tables as $table) $state['tables'][$table] = apda_hash_rows($table);
+if ($state['schema'] === 66) {
+    $state['transactional_tables'] = array();
+    foreach (array('forum_topics', 'forum_posts', 'forum_tournament_posts') as $suffix) {
+        $status = $wpdb->get_row($wpdb->prepare('SHOW TABLE STATUS WHERE Name = %s', $wpdb->prefix.$suffix));
+        if ($status && strtolower($status->Engine) === 'innodb') $state['transactional_tables'][] = $suffix;
+    }
+}
 foreach (array($wpdb->users, $wpdb->posts, $wpdb->terms, $wpdb->term_taxonomy, $wpdb->term_relationships, $wpdb->termmeta) as $table) {
     $state['tables'][$table] = apda_hash_rows($table);
 }

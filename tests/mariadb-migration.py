@@ -42,5 +42,27 @@ try:
     sql(f"USE {name}; DELETE FROM forum_reactions WHERE post_id=1 AND user_id=2 AND reaction='heart';")
     assert before == sql(f'USE {name}; SELECT * FROM forum_reactions ORDER BY user_id; SELECT * FROM forum_posts;')
     print('MariaDB migration preserves historical posts/votes; multiple emojis and uniqueness verified')
+
+    conversion = re.search(r'ALTER TABLE \$table ENGINE=InnoDB', source)
+    assert conversion, 'Expected tournament storage engine migration not found'
+    sql(f"""USE {name};
+    ALTER TABLE forum_posts ENGINE=MyISAM, ADD FULLTEXT (text);
+    CREATE TABLE forum_topics (id INT PRIMARY KEY, title VARCHAR(255)) ENGINE=MyISAM;
+    INSERT INTO forum_topics VALUES (1, 'Historic topic');
+    CREATE TABLE forum_tournament_posts (publication_id CHAR(32) PRIMARY KEY) ENGINE=MyISAM;""")
+    before = sql(f'USE {name}; SELECT * FROM forum_topics; SELECT * FROM forum_posts;')
+    tables = ('forum_topics', 'forum_posts', 'forum_tournament_posts')
+    for table in tables:
+        sql(f"USE {name}; {conversion[0].replace('$table', table)};")
+    assert sql(f'USE {name}; SELECT * FROM forum_topics; SELECT * FROM forum_posts;') == before
+    sql(f"""USE {name};
+    START TRANSACTION;
+    INSERT INTO forum_tournament_posts VALUES ('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+    INSERT INTO forum_topics VALUES (2, 'New topic');
+    INSERT INTO forum_posts VALUES (2, 'New results');
+    ROLLBACK;""")
+    assert sql(f'USE {name}; SELECT * FROM forum_topics; SELECT * FROM forum_posts;') == before
+    assert sql(f'USE {name}; SELECT COUNT(*) FROM forum_tournament_posts;') == '0'
+    print('Tournament migration preserves MyISAM history and allows atomic publication rollback')
 finally:
     sql(f'DROP DATABASE {name}')

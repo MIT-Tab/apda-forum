@@ -113,4 +113,5 @@ forum_assert($before === $wpdb->get_results("SELECT * FROM {$wpdb->prefix}forum_
 echo "Flag picker exclusion, rejected submissions, and retained history verified\n";
 require '/wordpress/wp-content/plugins/asgaros-forum/tests/results-profiles.php';
 require '/wordpress/wp-content/plugins/asgaros-forum/tests/account-login.php';
+require '/wordpress/wp-content/plugins/asgaros-forum/tests/tournament-posts.php';
 echo "FORUM_TESTS_PASSED\n";

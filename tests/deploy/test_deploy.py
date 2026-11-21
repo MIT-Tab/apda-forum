@@ -71,6 +71,23 @@ class PreservationTests(unittest.TestCase):
         after['tables']['wp_forum_posts']['rows'] -= 1
         with self.assertRaises(RuntimeError): server.compare_history(before, after, 65)
 
+    def test_tournament_schema_allows_only_the_empty_new_table(self):
+        before, after = self.state(), self.state()
+        new_table = before['prefix'] + 'forum_tournament_posts'
+        after['schema'] = 66
+        after['tables'][new_table] = {'rows': 0}
+        after['transactional_tables'] = ['forum_topics', 'forum_posts', 'forum_tournament_posts']
+        server.compare_history(before, after, 66)
+
+        after['tables'][new_table] = {'rows': 1}
+        with self.assertRaises(RuntimeError):
+            server.compare_history(before, after, 66)
+
+        after['tables'][new_table] = {'rows': 0}
+        after['transactional_tables'].remove('forum_posts')
+        with self.assertRaises(RuntimeError):
+            server.compare_history(before, after, 66)
+
     def test_expected_schema_and_prefix(self):
         for field, value in [('schema', 64), ('prefix', 'other_'), ('multisite', True), ('reaction_key', ['post_id', 'user_id'])]:
             after = self.state()

@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 
 class AsgarosForumDatabase {
     private $db;
-    private $db_version = 65;
+    private $db_version = 66;
     private $tables;
 
     public function __construct() {
@@ -24,11 +24,16 @@ class AsgarosForumDatabase {
         $this->tables->forums        = $this->db->prefix.'forum_forums';
         $this->tables->topics        = $this->db->prefix.'forum_topics';
         $this->tables->posts         = $this->db->prefix.'forum_posts';
+        $this->tables->tournament_posts = $this->db->prefix.'forum_tournament_posts';
         $this->tables->reports       = $this->db->prefix.'forum_reports';
         $this->tables->reactions     = $this->db->prefix.'forum_reactions';
         $this->tables->polls         = $this->db->prefix.'forum_polls';
         $this->tables->polls_options = $this->db->prefix.'forum_polls_options';
         $this->tables->polls_votes   = $this->db->prefix.'forum_polls_votes';
+    }
+
+    public function schema_version() {
+        return $this->db_version;
     }
 
     public function getTables() {
@@ -79,6 +84,7 @@ class AsgarosForumDatabase {
         $tables[] = $this->db->prefix.'forum_topics';
         $tables[] = $this->db->prefix.'forum_posts';
         $tables[] = $this->db->prefix.'forum_reports';
+        $tables[] = $this->tables->tournament_posts;
         $tables[] = $this->db->prefix.'forum_reactions';
         $tables[] = $this->db->prefix.'forum_polls';
         $tables[] = $this->db->prefix.'forum_polls_options';
@@ -158,6 +164,14 @@ class AsgarosForumDatabase {
             KEY forum_id (forum_id),
             KEY forum_id_id (forum_id, id),
             KEY parent_id_id (parent_id, id)
+            ) $charset_collate;";
+
+            $sql[] = 'CREATE TABLE '.$this->tables->tournament_posts." (
+            publication_id char(32) NOT NULL,
+            topic_id bigint(20) NOT NULL default '0',
+            results_post_id bigint(20) NOT NULL default '0',
+            tab_cards_url varchar(255) NOT NULL default '',
+            PRIMARY KEY  (publication_id)
             ) $charset_collate;";
 
             $sql[] = 'CREATE TABLE '.$this->tables->reports." (
@@ -487,6 +501,18 @@ class AsgarosForumDatabase {
                 @$this->db->query("UPDATE {$this->tables->reactions} AS r SET r.author_id = (SELECT p.author_id FROM {$this->tables->posts} AS p WHERE r.post_id = p.id);");
 
                 update_option('asgarosforum_db_version', 63);
+            }
+
+            // Topic creation, the results reply, and its publication record must roll back together.
+            if ($database_version_installed < 66 && !(defined('DB_ENGINE') && DB_ENGINE === 'sqlite')
+                && !is_a($this->db, 'WP_SQLite_DB')) {
+                foreach (array($this->tables->topics, $this->tables->posts, $this->tables->tournament_posts) as $table) {
+                    $status = $this->db->get_row($this->db->prepare('SHOW TABLE STATUS WHERE Name = %s', $table));
+                    if (!$status || (strtolower($status->Engine) !== 'innodb'
+                        && $this->db->query("ALTER TABLE $table ENGINE=InnoDB") === false)) {
+                        return;
+                    }
+                }
             }
 
             update_option('asgarosforum_db_version', $this->db_version);
