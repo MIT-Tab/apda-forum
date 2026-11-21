@@ -40,16 +40,26 @@ Otherwise `git push -u origin HEAD`. Write the exact PR body to a file and run
 `gh pr create -R MIT-Tab/apda-forum --base master --head "$(git branch --show-current)" --title "..." --body-file <file>`.
 Describe behavior, validation, and material limitations. Include screenshots for UI.
 
-## CI: one watcher, no agent polling
+## CI: detach once and end the turn
 
-Run `python3 "$S/ci-watch" --detach` once after the final push and end the turn.
-It quietly waits for two stable completed snapshots of the PR head and includes
-failed GitHub Actions log tails. A head change resets stability; timeout is three hours.
-With CODEX_THREAD_ID and codex queue it queues completion to this exact thread.
-Never guess another thread. Without notifications, run once in foreground or report
-that detached mode only writes a result file. Do not manually poll CI or start a
-second watcher for the same PR. After failure reproduce, fix, push, and start one
-new watcher. Do not claim green CI before the watcher reports it.
+After opening or updating the PR, run `python3 "$S/ci-watch" --detach` once and give the user the
+handoff with the PR link. Do not manually poll CI or start a second watcher for
+the same PR.
+
+The watcher checks GitHub every 60 seconds and reports the first completed failing
+check it sees, even while other checks are running. It sends the check names and
+links before fetching log tails. Two matching successful snapshots of the current
+PR head end the watch quietly. The default timeout is three hours.
+
+With `CODEX_THREAD_ID` and `codex queue`, the watcher alerts the current chat
+on failure or if it stops before reaching a result. You can also supply the
+current chat explicitly with `--thread`. Without notification support, detach
+without a thread and tell the user where the result file will be saved. Use
+foreground mode for an explicit terminal check.
+
+When a failure alert arrives, tell the user which check failed right away.
+Use the check link or the watcher log to investigate. After a fix, push and
+start one new watcher.
 
 Keep verbose output in logs and report failure tails. Do not repeat passing checks
 without a relevant change. Never uninstall the plugin to test a fork switch:
