@@ -78,6 +78,7 @@ function deleteData() {
     $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}forum_forums;");
     $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}forum_topics;");
     $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}forum_posts;");
+    $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}forum_tournament_posts;");
     $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}forum_reports;");
     $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}forum_reactions;");
     $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}forum_polls;");

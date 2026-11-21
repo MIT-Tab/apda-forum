@@ -93,10 +93,17 @@ def upstream_version(value):
 
 
 def compare_history(before, after, schema):
-    if before['tables'] != after['tables'] or before['options'] != after['options']:
+    after_tables = after['tables'].copy()
+    if schema == 66:
+        publication_table = before['prefix'] + 'forum_tournament_posts'
+        if publication_table not in before['tables'] and after_tables.get(publication_table, {}).get('rows') == 0:
+            after_tables.pop(publication_table)
+        if after.get('transactional_tables') != ['forum_topics', 'forum_posts', 'forum_tournament_posts']:
+            raise RuntimeError('Tournament publishing tables must use InnoDB')
+    if before['tables'] != after_tables or before['options'] != after['options']:
         raise RuntimeError('Native forum/WordPress history changed; deployment rejected')
     if after['schema'] != schema or after['reaction_key'] != ['post_id', 'user_id', 'reaction']:
-        raise RuntimeError('Reaction migration did not reach the expected schema')
+        raise RuntimeError('Forum migration did not reach the expected schema')
     if after['multisite'] or before['prefix'] != after['prefix']:
         raise RuntimeError('Unsupported site configuration')
 
@@ -170,12 +177,12 @@ class Deployment:
         if len(matches) != 1:
             raise RuntimeError('No validated WordPress state returned')
         state = json.loads(matches[0])
-        if state['multisite'] or state['schema'] not in {64, 65}:
+        if state['multisite'] or state['schema'] not in {64, 65, 66}:
             raise RuntimeError('Installed schema/site requires operator review')
         return state
 
     def dump(self, destination):
-        # --lock-tables is required: the production posts/topics tables are MyISAM.
+        # Preserve a consistent snapshot across InnoDB and any remaining MyISAM tables.
         with destination.open('wb') as output:
             self.wp(self.site, 'db', 'export', '-', '--lock-tables=true', '--add-drop-table', '--no-tablespaces=true', '--set-gtid-purged=OFF', '--default-character-set=utf8mb4', stdout=output)
         if destination.stat().st_size < 1000:
