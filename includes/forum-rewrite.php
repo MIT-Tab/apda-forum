@@ -211,7 +211,9 @@ class AsgarosForumRewrite {
         // This is necessary to prevent multiple links pointing to the same content in
         // search engines.
         if ($this->asgarosforum->current_view) {
-            $redirect_link = $this->get_link($this->asgarosforum->current_view, $this->asgarosforum->current_element);
+            $view = $this->asgarosforum->current_view;
+            $parameters = $view === 'search' ? $this->asgarosforum->search->get_query_args() : false;
+            $redirect_link = $this->get_link($view, $this->asgarosforum->current_element, $parameters, '', false);
 
             if ($this->asgarosforum->current_page) {
                 $redirect_link = add_query_arg(array('part' => ($this->asgarosforum->current_page + 1)), $redirect_link);

@@ -5,23 +5,47 @@ if (!defined('ABSPATH')) {
 }
 
 class AsgarosForumSearch {
-    private $asgarosforum              = null;
-    public $search_keywords_for_query  = '';
-    public $search_keywords_for_output = '';
+    private $asgarosforum;
+    private $filters = array(
+        'keywords' => '',
+        'search_exclude' => '',
+        'search_category' => '',
+        'search_forum' => '',
+        'search_author' => '',
+        'search_from' => '',
+        'search_to' => '',
+        'search_in' => '',
+        'search_sort' => '',
+    );
 
     public function __construct($asgarosForumObject) {
-		$this->asgarosforum = $asgarosForumObject;
+        $this->asgarosforum = $asgarosForumObject;
 
         add_action('init', array($this, 'initialize'));
         add_action('asgarosforum_breadcrumbs_search', array($this, 'add_breadcrumbs'));
     }
 
     public function initialize() {
-        if (!empty($_GET['keywords'])) {
-            $keywords                         = sanitize_text_field($_GET['keywords']);
-            $this->search_keywords_for_query  = esc_sql($keywords);
-            $this->search_keywords_for_output = stripslashes(esc_html($keywords));
+        foreach (array_keys($this->filters) as $field) {
+            $value = isset($_GET[$field]) && is_string($_GET[$field]) ? wp_unslash($_GET[$field]) : '';
+            $this->filters[$field] = sanitize_text_field($value);
         }
+
+        $scope = isset($_GET['search_scope']) && is_string($_GET['search_scope']) ? wp_unslash($_GET['search_scope']) : '';
+        if (preg_match('/^(category|forum):([1-9][0-9]*)$/D', $scope, $parts)) {
+            $this->filters['search_'.$parts[1]] = $parts[2];
+        }
+    }
+
+    public function get_keywords() {
+        return $this->filters['keywords'];
+    }
+
+    public function get_query_args() {
+        $filters = array_filter($this->filters, function ($value) {
+            return $value !== '';
+        });
+        return array_map('rawurlencode', $filters);
     }
 
     public function add_breadcrumbs() {
@@ -31,98 +55,317 @@ class AsgarosForumSearch {
     }
 
     public function show_search_input() {
-        if ($this->asgarosforum->options['enable_search']) {
-            echo '<div id="forum-search">';
-            echo '<span class="search-icon fas fa-search"></span>';
-
-            echo '<form method="get" action="'.esc_url($this->asgarosforum->get_link('search')).'">';
-
-            // Workaround for broken search when using plain permalink structure.
-            if (!$this->asgarosforum->rewrite->use_permalinks) {
-                echo '<input name="view" type="hidden" value="search">';
-            }
-
-            // Workaround for broken search in posts when using plain permalink structure.
-            if (!empty($_GET['p'])) {
-                $value = sanitize_key($_GET['p']);
-                echo '<input name="p" type="hidden" value="'.esc_attr($value).'">';
-            }
-
-            // Workaround for broken search in pages when using plain permalink structure.
-            if (!empty($_GET['page_id'])) {
-                $value = sanitize_key($_GET['page_id']);
-                echo '<input name="page_id" type="hidden" value="'.esc_attr($value).'">';
-            }
-
-            echo '<input name="keywords" type="search" placeholder="'.esc_html__('Search ...', 'asgaros-forum').'" value="'.esc_attr($this->search_keywords_for_output).'">';
-            echo '</form>';
-            echo '</div>';
+        if (!$this->asgarosforum->options['enable_search'] || $this->asgarosforum->current_view === 'search') {
+            return;
         }
+
+        $url = $this->asgarosforum->get_link('search', false, false, '', false);
+        echo '<div id="forum-search">';
+        echo '<form method="get" action="'.esc_url($url).'">';
+        $this->render_routing_fields($url);
+        echo '<button class="search-icon" type="submit" aria-label="'.esc_attr__('Search forum', 'asgaros-forum').'"><span class="fas fa-search" aria-hidden="true"></span></button>';
+        echo '<input name="keywords" type="search" maxlength="200" aria-label="'.esc_attr__('Keywords', 'asgaros-forum').'" placeholder="'.esc_attr__('Search …', 'asgaros-forum').'" value="'.esc_attr($this->get_keywords()).'">';
+        echo '</form>';
+        echo '<a href="'.esc_url($url).'">'.esc_html__('Filters', 'asgaros-forum').'</a>';
+        echo '</div>';
+    }
+
+    private function render_routing_fields($url) {
+        // Browsers replace the action's query string when submitting a GET form.
+        wp_parse_str((string) wp_parse_url($url, PHP_URL_QUERY), $query);
+        foreach (array('view', 'p', 'page_id') as $field) {
+            if (isset($query[$field])) {
+                echo '<input name="'.esc_attr($field).'" type="hidden" value="'.esc_attr($query[$field]).'">';
+            }
+        }
+    }
+
+    private function render_filters($categories, $url) {
+        $filters = $this->filters;
+        $scope = '';
+        if ($filters['search_forum'] !== '') {
+            $scope = 'forum:'.$filters['search_forum'];
+        } elseif ($filters['search_category'] !== '') {
+            $scope = 'category:'.$filters['search_category'];
+        }
+
+        $active = (int) ($scope !== '') + (int) ($filters['search_author'] !== '')
+            + (int) ($filters['search_from'] !== '' || $filters['search_to'] !== '')
+            + (int) ($filters['search_in'] === 'titles') + (int) ($filters['search_sort'] === 'oldest')
+            + (int) ($filters['search_exclude'] !== '');
+
+        echo '<form class="forum-search-form" role="search" aria-label="'.esc_attr__('Forum posts', 'asgaros-forum').'" method="get" action="'.esc_url($url).'">';
+        $this->render_routing_fields($url);
+        echo '<div class="forum-search-bar">';
+        echo '<input type="search" name="keywords" maxlength="200" aria-label="'.esc_attr__('Search posts', 'asgaros-forum').'" placeholder="'.esc_attr__('Search posts…', 'asgaros-forum').'" value="'.esc_attr($filters['keywords']).'">';
+        echo '<button class="button button-normal" type="submit">'.esc_html__('Search', 'asgaros-forum').'</button>';
+        echo '</div>';
+
+        echo '<details class="forum-search-options"'.($this->is_valid_date_range() ? '' : ' open').'>';
+        echo '<summary>'.esc_html__('Filters', 'asgaros-forum');
+        if ($active) {
+            echo ' ('.esc_html(number_format_i18n($active)).')';
+        }
+        echo '</summary><div class="forum-search-filters">';
+
+        echo '<label>'.esc_html__('Location', 'asgaros-forum').'<select name="search_scope">';
+        echo '<option value="">'.esc_html__('Everywhere', 'asgaros-forum').'</option>';
+        echo '<optgroup label="'.esc_attr__('Categories', 'asgaros-forum').'">';
+        foreach ($categories as $category) {
+            $value = 'category:'.$category->term_id;
+            echo '<option value="'.esc_attr($value).'"'.selected($scope, $value, false).'>'.esc_html($category->name).'</option>';
+        }
+        echo '</optgroup><optgroup label="'.esc_attr__('Forums', 'asgaros-forum').'">';
+        foreach ($this->get_searchable_forums($categories) as $forum) {
+            $value = 'forum:'.$forum->id;
+            $label = $forum->parent_name ? $forum->parent_name.' / '.$forum->name : $forum->name;
+            echo '<option value="'.esc_attr($value).'"'.selected($scope, $value, false).'>'.esc_html($label).'</option>';
+        }
+        echo '</optgroup></select></label>';
+        echo '<label>'.esc_html__('Posted by', 'asgaros-forum');
+        echo '<input type="text" name="search_author" maxlength="250" placeholder="'.esc_attr__('Exact display name', 'asgaros-forum').'" value="'.esc_attr($filters['search_author']).'"></label>';
+        echo '<label class="forum-search-exclude">'.esc_html__('Exclude words', 'asgaros-forum');
+        echo '<input type="text" name="search_exclude" maxlength="200" value="'.esc_attr($filters['search_exclude']).'"></label>';
+        echo '<div class="forum-search-dates">';
+        echo '<label>'.esc_html__('From', 'asgaros-forum');
+        echo '<input type="date" name="search_from" value="'.esc_attr($filters['search_from']).'"></label>';
+        echo '<label>'.esc_html__('Through', 'asgaros-forum');
+        echo '<input type="date" name="search_to" value="'.esc_attr($filters['search_to']).'"></label>';
+        echo '</div>';
+        echo '<label>'.esc_html__('Search in', 'asgaros-forum').'<select name="search_in">';
+        echo '<option value="">'.esc_html__('Titles and posts', 'asgaros-forum').'</option>';
+        echo '<option value="titles"'.selected($filters['search_in'], 'titles', false).'>'.esc_html__('Topic titles only', 'asgaros-forum').'</option>';
+        echo '</select></label>';
+        echo '<label>'.esc_html__('Sort by', 'asgaros-forum').'<select name="search_sort">';
+        echo '<option value="">'.esc_html__('Newest first', 'asgaros-forum').'</option>';
+        echo '<option value="oldest"'.selected($filters['search_sort'], 'oldest', false).'>'.esc_html__('Oldest first', 'asgaros-forum').'</option>';
+        echo '</select></label>';
+        echo '<div class="forum-search-actions">';
+        echo '<button class="button button-normal" type="submit">'.esc_html__('Apply filters', 'asgaros-forum').'</button>';
+        if ($active) {
+            $clear_url = $this->asgarosforum->get_link('search', false, array('keywords' => rawurlencode($filters['keywords'])), '', false);
+            echo '<a href="'.esc_url($clear_url).'">'.esc_html__('Clear filters', 'asgaros-forum').'</a>';
+        }
+        echo '</div></div></details></form>';
     }
 
     public function show_search_results() {
-        $results = $this->get_search_results();
+        $categories = $this->get_searchable_categories();
+        $url = $this->asgarosforum->get_link('search', false, false, '', false);
+        $this->render_filters($categories, $url);
 
-        $paginationRendering = ($results) ? '<div class="pages-and-menu">'.$this->asgarosforum->pagination->renderPagination('search').'<div class="clear"></div></div>' : '';
-        echo $paginationRendering;
-
-        echo '<div class="title-element">';
-            echo esc_html__('Search results:', 'asgaros-forum').' '.esc_html($this->search_keywords_for_output);
-            echo '<span class="last-post-headline">'.esc_html__('Last post', 'asgaros-forum').'</span>';
-        echo '</div>';
-        echo '<div class="content-container">';
-
-        if ($results) {
-            foreach ($results as $topic) {
-                $this->asgarosforum->render_topic_element($topic, 'topic-normal', true);
-            }
-        } else {
-            $notice = __('No results found for:', 'asgaros-forum').'&nbsp;<b>'.$this->search_keywords_for_output.'</b>';
-            $this->asgarosforum->render_notice($notice);
+        if (!is_user_logged_in() && ($this->asgarosforum->options['require_login'] || $this->asgarosforum->options['require_login_posts'])) {
+            $this->asgarosforum->render_notice(esc_html__('Sign in to search forum posts.', 'asgaros-forum'));
+            return;
         }
 
-        echo '</div>';
+        if (!$this->is_valid_date_range()) {
+            $this->asgarosforum->render_notice(esc_html__('Enter a valid date range. The through date must be on or after the from date.', 'asgaros-forum'));
+            return;
+        }
 
-        echo $paginationRendering;
+        $results = $this->get_search_results($categories);
+        if ($results === null) {
+            return;
+        }
+
+        $count = $results['count'];
+        $pagination = $this->asgarosforum->pagination->renderPagination('search', false, $count);
+        echo '<p class="forum-search-count">'.sprintf(esc_html(_n('%s matching post', '%s matching posts', $count, 'asgaros-forum')), esc_html(number_format_i18n($count))).'</p>';
+        echo '<div class="forum-search-results">';
+        foreach ($results['posts'] as $post) {
+            $link = $this->asgarosforum->rewrite->get_post_link((int) $post->id, (int) $post->topic_id);
+            $excerpt = wp_trim_words(strip_shortcodes($post->text ?? ''), 32);
+            echo '<article class="forum-search-result">';
+            echo '<a class="forum-search-result-title" href="'.esc_url($link).'">'.esc_html(stripslashes($post->topic_name)).'</a>';
+            echo '<small>'.esc_html($this->asgarosforum->get_plain_username($post->author_id)).' &middot; ';
+            echo esc_html($this->asgarosforum->format_date($post->date)).' &middot; '.esc_html($post->forum_name).'</small>';
+            if ($excerpt !== '') {
+                echo '<p>'.esc_html($excerpt).'</p>';
+            }
+            echo '</article>';
+        }
+        if (!$results['posts']) {
+            $message = $count ? __('No matching posts on this page.', 'asgaros-forum') : __('No posts match these filters.', 'asgaros-forum');
+            $this->asgarosforum->render_notice(esc_html($message));
+        }
+        echo '</div>';
+        if ($pagination) {
+            echo '<div class="pages-and-menu">'.$pagination.'<div class="clear"></div></div>';
+        }
     }
 
-    public function get_search_results() {
-        if (!empty($this->search_keywords_for_query)) {
-            $categories       = $this->asgarosforum->content->get_categories();
-            $categoriesFilter = array();
+    private function is_valid_date_range() {
+        $from = $this->filters['search_from'];
+        $to = $this->filters['search_to'];
+        return $this->is_valid_date($from) && $this->is_valid_date($to) && ($from === '' || $to === '' || $from <= $to);
+    }
 
-            foreach ($categories as $category) {
-                $categoriesFilter[] = $category->term_id;
+    private function is_valid_date($date) {
+        return $date === '' || (preg_match('/^([1-9][0-9]{3})-([0-9]{2})-([0-9]{2})$/D', $date, $parts)
+            && checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1]));
+    }
+
+    private function get_searchable_categories() {
+        return array_filter($this->asgarosforum->content->get_categories(), function ($category) {
+            return apply_filters('asgarosforum_filter_check_access', true, $category->term_id);
+        });
+    }
+
+    private function get_searchable_forums($categories) {
+        if (!$categories) {
+            return array();
+        }
+
+        $db = $this->asgarosforum->db;
+        $table = $this->asgarosforum->tables->forums;
+        $category_ids = implode(',', array_map('intval', wp_list_pluck($categories, 'term_id')));
+        $query = "SELECT f.id, f.name, f.parent_forum, parent.name AS parent_name FROM {$table} AS f
+            LEFT JOIN {$table} AS parent ON parent.id = f.parent_forum AND parent.parent_id IN ($category_ids)
+            WHERE f.parent_id IN ($category_ids)";
+        $shortcode_forum = $this->asgarosforum->shortcode->search_forum_id;
+        if ($shortcode_forum) {
+            $query .= $db->prepare(' AND (f.id = %d OR f.parent_forum = %d)', $shortcode_forum, $shortcode_forum);
+        }
+
+        return $db->get_results($query." ORDER BY f.parent_id, COALESCE(parent.sort, f.sort), COALESCE(parent.id, f.id), f.parent_forum, f.sort, f.id");
+    }
+
+    private function keyword_words($keywords) {
+        if (strlen($keywords) > 800 || !preg_match_all('/[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/u', $keywords, $matches)) {
+            return array();
+        }
+
+        return array_unique($matches[0]);
+    }
+
+    private function keyword_condition($column, $words) {
+        $db = $this->asgarosforum->db;
+        if (defined('DB_ENGINE') && DB_ENGINE === 'sqlite') {
+            // SQLite (including local Playground) has no MySQL FULLTEXT indexes.
+            $conditions = array();
+            foreach ($words as $word) {
+                $conditions[] = $db->prepare("$column LIKE %s", '%'.$db->esc_like($word).'%');
             }
+            return '('.implode(' OR ', $conditions).')';
+        }
 
-            // Do not execute a search-query when no categories are accessible.
-            if (empty($categoriesFilter)) {
-                return false;
+        return $db->prepare("MATCH ($column) AGAINST (%s IN BOOLEAN MODE)", implode('* ', $words).'*');
+    }
+
+    public function get_search_results($categories = null) {
+        $filters = $this->filters;
+        if ($filters['keywords'] === '' && $filters['search_exclude'] === '' && $filters['search_category'] === ''
+            && $filters['search_forum'] === '' && $filters['search_author'] === ''
+            && $filters['search_from'] === '' && $filters['search_to'] === '' && $filters['search_in'] !== 'titles') {
+            return null;
+        }
+
+        $empty = array('count' => 0, 'posts' => array());
+        if (!$this->asgarosforum->options['enable_search']
+            || (!is_user_logged_in() && ($this->asgarosforum->options['require_login'] || $this->asgarosforum->options['require_login_posts']))
+            || !$this->is_valid_date_range()) {
+            return $empty;
+        }
+
+        $db = $this->asgarosforum->db;
+        $tables = $this->asgarosforum->tables;
+        $categories = $categories ?? $this->get_searchable_categories();
+        $category_ids = array_map('intval', wp_list_pluck($categories, 'term_id'));
+        if ($filters['search_category'] !== '') {
+            $category = filter_var($filters['search_category'], FILTER_VALIDATE_INT, array('options' => array('min_range' => 1)));
+            $category_ids = in_array($category, $category_ids, true) ? array($category) : array();
+        }
+        if (!$category_ids) {
+            return $empty;
+        }
+
+        $category_sql = implode(',', $category_ids);
+        $where = array('t.approved = 1', "f.parent_id IN ($category_sql)");
+        if ($filters['search_forum'] !== '') {
+            $forum = filter_var($filters['search_forum'], FILTER_VALIDATE_INT, array('options' => array('min_range' => 1)));
+            if (!$forum) {
+                return $empty;
             }
+            $where[] = $db->prepare("(f.id = %d OR (f.parent_forum = %d AND EXISTS (
+                SELECT 1 FROM {$tables->forums} AS parent WHERE parent.id = f.parent_forum
+                AND parent.parent_id IN ($category_sql))))", $forum, $forum);
+        }
+        $user_id = get_current_user_id();
+        if (!$this->asgarosforum->permissions->isModerator('current')) {
+            $where[] = $db->prepare("(f.forum_status <> 'private' OR (%d > 0 AND t.author_id = %d))", $user_id, $user_id);
+        }
+        if ($filters['search_author'] !== '') {
+            $where[] = $db->prepare("EXISTS (SELECT 1 FROM {$db->users} AS u WHERE u.ID = p.author_id AND u.display_name = %s)", $filters['search_author']);
+        }
+        if ($filters['search_from'] !== '') {
+            $where[] = $db->prepare('p.date >= %s', $filters['search_from'].' 00:00:00');
+        }
+        if ($filters['search_to'] !== '') {
+            $where[] = $db->prepare('p.date <= %s', $filters['search_to'].' 23:59:59');
+        }
+        $shortcode_forum = $this->asgarosforum->shortcode->search_forum_id;
+        if ($shortcode_forum) {
+            $where[] = $db->prepare('(f.id = %d OR f.parent_forum = %d)', $shortcode_forum, $shortcode_forum);
+        }
 
-            $where = 'AND f.parent_id IN ('.implode(',', $categoriesFilter).')';
+        $titles_only = $filters['search_in'] === 'titles';
+        $first_post = "(SELECT MIN(id) FROM {$tables->posts} WHERE parent_id = t.id)";
+        if ($titles_only) {
+            $where[] = "p.id = $first_post";
+        }
 
-            $start = $this->asgarosforum->current_page * $this->asgarosforum->options['topics_per_page'];
-            $end   = $this->asgarosforum->options['topics_per_page'];
-            $limit = $this->asgarosforum->db->prepare('LIMIT %d, %d', $start, $end);
-
-            $shortcodeSearchFilter = $this->asgarosforum->shortcode->shortcodeSearchFilter;
-
-            $match_name       = "MATCH (name) AGAINST ('{$this->search_keywords_for_query}*' IN BOOLEAN MODE)";
-            $match_text       = "MATCH (text) AGAINST ('{$this->search_keywords_for_query}*' IN BOOLEAN MODE)";
-            $query_answers    = "SELECT (COUNT(*) - 1) FROM {$this->asgarosforum->tables->posts} WHERE parent_id = t.id";
-            $query_match_name = "SELECT id AS topic_id, {$match_name} AS score_name, 0 AS score_text FROM {$this->asgarosforum->tables->topics} WHERE {$match_name} GROUP BY topic_id";
-            $query_match_text = "SELECT parent_id AS topic_id, 0 AS score_name, {$match_text} AS score_text FROM {$this->asgarosforum->tables->posts} WHERE {$match_text} GROUP BY topic_id";
-
-            $query = "SELECT t.*, f.id AS forum_id, f.name AS forum_name, ({$query_answers}) AS answers, su.topic_id, SUM(su.score_name + su.score_text) AS score FROM ({$query_match_name} UNION {$query_match_text}) AS su, {$this->asgarosforum->tables->topics} AS t, {$this->asgarosforum->tables->forums} AS f WHERE su.topic_id = t.id AND t.parent_id = f.id AND t.approved = 1 {$where} {$shortcodeSearchFilter} GROUP BY su.topic_id ORDER BY score DESC, su.topic_id DESC {$limit}";
-
-            $results = $this->asgarosforum->db->get_results($query);
-
-            if (!empty($results)) {
-                return $results;
+        $keyword_join = '';
+        if ($filters['keywords'] !== '') {
+            $words = $this->keyword_words($filters['keywords']);
+            if (!$words) {
+                return $empty;
+            }
+            $title_match = $this->keyword_condition('t.name', $words);
+            if ($titles_only) {
+                $where[] = $title_match;
+            } else {
+                $text_match = $this->keyword_condition('text', $words);
+                // Keep the two FULLTEXT lookups separate so each can use its own index.
+                $keyword_join = "JOIN (
+                    SELECT id FROM {$tables->posts} WHERE {$text_match}
+                    UNION
+                    SELECT $first_post AS id FROM {$tables->topics} AS t WHERE {$title_match}
+                ) AS matches ON matches.id = p.id";
             }
         }
 
-        return false;
+        if ($filters['search_exclude'] !== '') {
+            $excluded = $this->keyword_words($filters['search_exclude']);
+            if (!$excluded) {
+                return $empty;
+            }
+
+            $title_match = $this->keyword_condition('t.name', $excluded);
+            $where[] = "NOT ($title_match)";
+            if (!$titles_only) {
+                $text_match = $this->keyword_condition('p.text', $excluded);
+                $where[] = "NOT COALESCE(($text_match), 0)";
+            }
+        }
+
+        $query = "FROM {$tables->posts} AS p
+            JOIN {$tables->topics} AS t ON t.id = p.parent_id
+            JOIN {$tables->forums} AS f ON f.id = t.parent_id
+            $keyword_join
+            WHERE ".implode(' AND ', $where);
+        $count = (int) $db->get_var("SELECT COUNT(*) $query");
+        if (!$count) {
+            return $empty;
+        }
+
+        $direction = $filters['search_sort'] === 'oldest' ? 'ASC' : 'DESC';
+        $page_size = (int) $this->asgarosforum->options['topics_per_page'];
+        $offset = $this->asgarosforum->current_page * $page_size;
+        $limit = $db->prepare('LIMIT %d OFFSET %d', $page_size, $offset);
+        $posts = $db->get_results("SELECT p.id, p.author_id, p.date, p.text, t.id AS topic_id, t.name AS topic_name, f.name AS forum_name
+            $query ORDER BY p.date $direction, p.id $direction $limit");
+
+        return array('count' => $count, 'posts' => $posts);
     }
 }

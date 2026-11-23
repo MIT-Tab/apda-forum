@@ -42,7 +42,7 @@ class AsgarosForumSearch_Widget extends WP_Widget {
 				echo '<input name="page_id" type="hidden" value="'.esc_attr($asgarosforum->options['location']).'">';
 			}
 
-			echo '<input name="keywords" type="search" placeholder="'.esc_attr__('Search ...', 'asgaros-forum').'" value="'.esc_attr($asgarosforum->search->search_keywords_for_output).'">';
+			echo '<input name="keywords" type="search" placeholder="'.esc_attr__('Search ...', 'asgaros-forum').'" value="'.esc_attr($asgarosforum->search->get_keywords()).'">';
 			echo '<button type="submit"><i class="fas fa-search"></i></button>';
 
 			echo '</form>';

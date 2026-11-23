@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 class AsgarosForumShortcodes {
     private $asgarosforum         = null;
     private $postObject           = null;
-    public $shortcodeSearchFilter = '';
+    public $search_forum_id       = 0;
     public $includeCategories     = array();
 
     public function __construct($asgarosForumObject) {
@@ -83,7 +83,7 @@ class AsgarosForumShortcodes {
 
                     // Configure components.
                     $this->asgarosforum->breadcrumbs->breadcrumbs_level = ($this->asgarosforum->parent_forum != $forumID) ? 2 : 3;
-                    $this->shortcodeSearchFilter                        = 'AND (f.id = '.$forumID.' OR f.parent_forum = '.$forumID.')';
+                    $this->search_forum_id                              = (int) $forumID;
                 } else if (!empty($atts['category'])) {
                     $this->includeCategories = explode(',', $atts['category']);
 
