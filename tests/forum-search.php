@@ -73,6 +73,10 @@ $assert_search(array('search_category' => (string) $other_category, 'search_foru
 $assert_search(array('keywords' => 'Searchfixture', 'search_in' => 'titles'), array($opening), 'Titles-only search excludes body matches and only returns the opening post');
 $assert_search(array('keywords' => 'Searchfixture', 'search_in' => 'titles', 'search_author' => "Avery O'Neil"), array(), 'Title-only author filter applies to the author of the opening post');
 $assert_search(array('keywords' => 'Searchfixture', 'search_sort' => 'oldest'), array($opening, $other_post, $members_post, $reply, $next_day), 'Date sorting and private-topic visibility must apply to the same result set');
+$assert_search(array('keywords' => 'Searchfixture', 'search_scope' => 'category:'.$search_category, 'search_exclude' => 'reply opening'), array($next_day), 'A post is excluded if its body matches any excluded word');
+$assert_search(array('search_scope' => 'category:'.$search_category, 'search_exclude' => 'planning'), array(), 'Excluding a topic title removes all of its posts');
+$assert_search(array('keywords' => 'Searchfixture', 'search_in' => 'titles', 'search_exclude' => 'opening'), array($opening), 'Titles-only search excludes words from titles only');
+$assert_search(array('keywords' => 'Searchfixture', 'search_in' => 'titles', 'search_exclude' => 'planning'), array(), 'Titles-only search excludes matching titles');
 $assert_search(array('search_from' => '2026-02-30'), array(), 'Invalid calendar dates must be rejected');
 $assert_search(array('search_from' => '2026-02-02', 'search_to' => '2026-02-01'), array(), 'Reversed dates must be rejected');
 $assert_search(array('keywords' => 'Searchfixture', 'search_category' => $search_category.",".$other_category), array(), 'Invalid category identifiers must not broaden the search');
@@ -83,6 +87,7 @@ forum_assert($run_search(array()) === null, 'Opening the search page should not 
 $asgarosforum->options['topics_per_page'] = 2;
 $assert_search(array('keywords' => 'Searchfixture'), array($next_day, $reply), 'First page uses stable newest-first ordering and counts all visible matches', 0, 5);
 $assert_search(array('keywords' => 'Searchfixture'), array($members_post, $other_post), 'Second page uses the same filters and counts', 1, 5);
+$assert_search(array('keywords' => 'Searchfixture', 'search_exclude' => 'reply'), array($other_post, $opening), 'Excluded posts are removed from both pagination and counts', 1, 4);
 $asgarosforum->options['topics_per_page'] = $original_page_size;
 
 $block_category = function ($allowed, $category) use ($search_category) { return $allowed && (int) $category !== $search_category; };

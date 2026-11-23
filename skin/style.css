@@ -1000,8 +1000,11 @@
 	gap: 4px;
 	min-width: 0;
 }
+#af-wrapper .forum-search-exclude,
 #af-wrapper .forum-search-dates {
 	grid-column: 1 / -1;
+}
+#af-wrapper .forum-search-dates {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr));
 	gap: 8px;

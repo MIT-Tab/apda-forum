@@ -8,6 +8,7 @@ class AsgarosForumSearch {
     private $asgarosforum;
     private $filters = array(
         'keywords' => '',
+        'search_exclude' => '',
         'search_category' => '',
         'search_forum' => '',
         'search_author' => '',
@@ -90,7 +91,8 @@ class AsgarosForumSearch {
 
         $active = (int) ($scope !== '') + (int) ($filters['search_author'] !== '')
             + (int) ($filters['search_from'] !== '' || $filters['search_to'] !== '')
-            + (int) ($filters['search_in'] === 'titles') + (int) ($filters['search_sort'] === 'oldest');
+            + (int) ($filters['search_in'] === 'titles') + (int) ($filters['search_sort'] === 'oldest')
+            + (int) ($filters['search_exclude'] !== '');
 
         echo '<form class="forum-search-form" role="search" aria-label="'.esc_attr__('Forum posts', 'asgaros-forum').'" method="get" action="'.esc_url($url).'">';
         $this->render_routing_fields($url);
@@ -122,6 +124,8 @@ class AsgarosForumSearch {
         echo '</optgroup></select></label>';
         echo '<label>'.esc_html__('Posted by', 'asgaros-forum');
         echo '<input type="text" name="search_author" maxlength="250" placeholder="'.esc_attr__('Exact display name', 'asgaros-forum').'" value="'.esc_attr($filters['search_author']).'"></label>';
+        echo '<label class="forum-search-exclude">'.esc_html__('Exclude words', 'asgaros-forum');
+        echo '<input type="text" name="search_exclude" maxlength="200" value="'.esc_attr($filters['search_exclude']).'"></label>';
         echo '<div class="forum-search-dates">';
         echo '<label>'.esc_html__('From', 'asgaros-forum');
         echo '<input type="date" name="search_from" value="'.esc_attr($filters['search_from']).'"></label>';
@@ -227,6 +231,14 @@ class AsgarosForumSearch {
         return $db->get_results($query." ORDER BY f.parent_id, COALESCE(parent.sort, f.sort), COALESCE(parent.id, f.id), f.parent_forum, f.sort, f.id");
     }
 
+    private function keyword_words($keywords) {
+        if (strlen($keywords) > 800 || !preg_match_all('/[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/u', $keywords, $matches)) {
+            return array();
+        }
+
+        return array_unique($matches[0]);
+    }
+
     private function keyword_condition($column, $words) {
         $db = $this->asgarosforum->db;
         if (defined('DB_ENGINE') && DB_ENGINE === 'sqlite') {
@@ -243,7 +255,8 @@ class AsgarosForumSearch {
 
     public function get_search_results($categories = null) {
         $filters = $this->filters;
-        if ($filters['keywords'] === '' && $filters['search_category'] === '' && $filters['search_forum'] === '' && $filters['search_author'] === ''
+        if ($filters['keywords'] === '' && $filters['search_exclude'] === '' && $filters['search_category'] === ''
+            && $filters['search_forum'] === '' && $filters['search_author'] === ''
             && $filters['search_from'] === '' && $filters['search_to'] === '' && $filters['search_in'] !== 'titles') {
             return null;
         }
@@ -304,10 +317,10 @@ class AsgarosForumSearch {
 
         $keyword_join = '';
         if ($filters['keywords'] !== '') {
-            if (strlen($filters['keywords']) > 800 || !preg_match_all('/[\p{L}\p{N}][\p{L}\p{N}\p{M}]*/u', $filters['keywords'], $matches)) {
+            $words = $this->keyword_words($filters['keywords']);
+            if (!$words) {
                 return $empty;
             }
-            $words = array_unique($matches[0]);
             $title_match = $this->keyword_condition('t.name', $words);
             if ($titles_only) {
                 $where[] = $title_match;
@@ -319,6 +332,20 @@ class AsgarosForumSearch {
                     UNION
                     SELECT $first_post AS id FROM {$tables->topics} AS t WHERE {$title_match}
                 ) AS matches ON matches.id = p.id";
+            }
+        }
+
+        if ($filters['search_exclude'] !== '') {
+            $excluded = $this->keyword_words($filters['search_exclude']);
+            if (!$excluded) {
+                return $empty;
+            }
+
+            $title_match = $this->keyword_condition('t.name', $excluded);
+            $where[] = "NOT ($title_match)";
+            if (!$titles_only) {
+                $text_match = $this->keyword_condition('p.text', $excluded);
+                $where[] = "NOT COALESCE(($text_match), 0)";
             }
         }
 
