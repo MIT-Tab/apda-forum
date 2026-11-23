@@ -29,6 +29,11 @@ class AsgarosForumSearch {
             $value = isset($_GET[$field]) && is_string($_GET[$field]) ? wp_unslash($_GET[$field]) : '';
             $this->filters[$field] = sanitize_text_field($value);
         }
+
+        $scope = isset($_GET['search_scope']) && is_string($_GET['search_scope']) ? wp_unslash($_GET['search_scope']) : '';
+        if (preg_match('/^(category|forum):([1-9][0-9]*)$/D', $scope, $parts)) {
+            $this->filters['search_'.$parts[1]] = $parts[2];
+        }
     }
 
     public function get_keywords() {
@@ -49,7 +54,7 @@ class AsgarosForumSearch {
     }
 
     public function show_search_input() {
-        if (!$this->asgarosforum->options['enable_search']) {
+        if (!$this->asgarosforum->options['enable_search'] || $this->asgarosforum->current_view === 'search') {
             return;
         }
 
@@ -60,8 +65,7 @@ class AsgarosForumSearch {
         echo '<button class="search-icon" type="submit" aria-label="'.esc_attr__('Search forum', 'asgaros-forum').'"><span class="fas fa-search" aria-hidden="true"></span></button>';
         echo '<input name="keywords" type="search" maxlength="200" aria-label="'.esc_attr__('Keywords', 'asgaros-forum').'" placeholder="'.esc_attr__('Search …', 'asgaros-forum').'" value="'.esc_attr($this->get_keywords()).'">';
         echo '</form>';
-        $filters_url = $this->asgarosforum->current_view === 'search' ? '#forum-search-filters' : $url;
-        echo '<a href="'.esc_url($filters_url).'">'.esc_html__('Filters', 'asgaros-forum').'</a>';
+        echo '<a href="'.esc_url($url).'">'.esc_html__('Filters', 'asgaros-forum').'</a>';
         echo '</div>';
     }
 
@@ -77,30 +81,53 @@ class AsgarosForumSearch {
 
     private function render_filters($categories, $url) {
         $filters = $this->filters;
-        echo '<form id="forum-search-filters" class="forum-search-filters content-container" aria-label="'.esc_attr__('Search filters', 'asgaros-forum').'" method="get" action="'.esc_url($url).'">';
-        $this->render_routing_fields($url);
+        $scope = '';
+        if ($filters['search_forum'] !== '') {
+            $scope = 'forum:'.$filters['search_forum'];
+        } elseif ($filters['search_category'] !== '') {
+            $scope = 'category:'.$filters['search_category'];
+        }
 
-        echo '<label class="forum-search-wide">'.esc_html__('Keywords', 'asgaros-forum');
-        echo '<input type="search" name="keywords" maxlength="200" value="'.esc_attr($filters['keywords']).'"></label>';
-        echo '<label class="forum-search-wide">'.esc_html__('Category', 'asgaros-forum').'<select name="search_category">';
-        echo '<option value="">'.esc_html__('All accessible categories', 'asgaros-forum').'</option>';
+        $active = (int) ($scope !== '') + (int) ($filters['search_author'] !== '')
+            + (int) ($filters['search_from'] !== '' || $filters['search_to'] !== '')
+            + (int) ($filters['search_in'] === 'titles') + (int) ($filters['search_sort'] === 'oldest');
+
+        echo '<form class="forum-search-form" role="search" aria-label="'.esc_attr__('Forum posts', 'asgaros-forum').'" method="get" action="'.esc_url($url).'">';
+        $this->render_routing_fields($url);
+        echo '<div class="forum-search-bar">';
+        echo '<input type="search" name="keywords" maxlength="200" aria-label="'.esc_attr__('Search posts', 'asgaros-forum').'" placeholder="'.esc_attr__('Search posts…', 'asgaros-forum').'" value="'.esc_attr($filters['keywords']).'">';
+        echo '<button class="button button-normal" type="submit">'.esc_html__('Search', 'asgaros-forum').'</button>';
+        echo '</div>';
+
+        echo '<details class="forum-search-options"'.($this->is_valid_date_range() ? '' : ' open').'>';
+        echo '<summary>'.esc_html__('Filters', 'asgaros-forum');
+        if ($active) {
+            echo ' ('.esc_html(number_format_i18n($active)).')';
+        }
+        echo '</summary><div class="forum-search-filters">';
+
+        echo '<label>'.esc_html__('Location', 'asgaros-forum').'<select name="search_scope">';
+        echo '<option value="">'.esc_html__('Everywhere', 'asgaros-forum').'</option>';
+        echo '<optgroup label="'.esc_attr__('Categories', 'asgaros-forum').'">';
         foreach ($categories as $category) {
-            echo '<option value="'.esc_attr($category->term_id).'"'.selected($filters['search_category'], $category->term_id, false).'>'.esc_html($category->name).'</option>';
+            $value = 'category:'.$category->term_id;
+            echo '<option value="'.esc_attr($value).'"'.selected($scope, $value, false).'>'.esc_html($category->name).'</option>';
         }
-        echo '</select></label>';
-        echo '<label class="forum-search-wide">'.esc_html__('Forum', 'asgaros-forum').'<select name="search_forum">';
-        echo '<option value="">'.esc_html__('All accessible forums', 'asgaros-forum').'</option>';
+        echo '</optgroup><optgroup label="'.esc_attr__('Forums', 'asgaros-forum').'">';
         foreach ($this->get_searchable_forums($categories) as $forum) {
+            $value = 'forum:'.$forum->id;
             $label = $forum->parent_name ? $forum->parent_name.' / '.$forum->name : $forum->name;
-            echo '<option value="'.esc_attr($forum->id).'"'.selected($filters['search_forum'], $forum->id, false).'>'.esc_html($label).'</option>';
+            echo '<option value="'.esc_attr($value).'"'.selected($scope, $value, false).'>'.esc_html($label).'</option>';
         }
-        echo '</select></label>';
-        echo '<label class="forum-search-wide">'.esc_html__('Posted by', 'asgaros-forum');
+        echo '</optgroup></select></label>';
+        echo '<label>'.esc_html__('Posted by', 'asgaros-forum');
         echo '<input type="text" name="search_author" maxlength="250" placeholder="'.esc_attr__('Exact display name', 'asgaros-forum').'" value="'.esc_attr($filters['search_author']).'"></label>';
-        echo '<label>'.esc_html__('From date', 'asgaros-forum');
+        echo '<div class="forum-search-dates">';
+        echo '<label>'.esc_html__('From', 'asgaros-forum');
         echo '<input type="date" name="search_from" value="'.esc_attr($filters['search_from']).'"></label>';
-        echo '<label>'.esc_html__('Through date', 'asgaros-forum');
+        echo '<label>'.esc_html__('Through', 'asgaros-forum');
         echo '<input type="date" name="search_to" value="'.esc_attr($filters['search_to']).'"></label>';
+        echo '</div>';
         echo '<label>'.esc_html__('Search in', 'asgaros-forum').'<select name="search_in">';
         echo '<option value="">'.esc_html__('Titles and posts', 'asgaros-forum').'</option>';
         echo '<option value="titles"'.selected($filters['search_in'], 'titles', false).'>'.esc_html__('Topic titles only', 'asgaros-forum').'</option>';
@@ -110,9 +137,12 @@ class AsgarosForumSearch {
         echo '<option value="oldest"'.selected($filters['search_sort'], 'oldest', false).'>'.esc_html__('Oldest first', 'asgaros-forum').'</option>';
         echo '</select></label>';
         echo '<div class="forum-search-actions">';
-        echo '<button class="button button-normal" type="submit">'.esc_html__('Search', 'asgaros-forum').'</button>';
-        echo '<a href="'.esc_url($url).'">'.esc_html__('Clear filters', 'asgaros-forum').'</a>';
-        echo '</div></form>';
+        echo '<button class="button button-normal" type="submit">'.esc_html__('Apply filters', 'asgaros-forum').'</button>';
+        if ($active) {
+            $clear_url = $this->asgarosforum->get_link('search', false, array('keywords' => rawurlencode($filters['keywords'])), '', false);
+            echo '<a href="'.esc_url($clear_url).'">'.esc_html__('Clear filters', 'asgaros-forum').'</a>';
+        }
+        echo '</div></div></details></form>';
     }
 
     public function show_search_results() {
@@ -137,12 +167,12 @@ class AsgarosForumSearch {
 
         $count = $results['count'];
         $pagination = $this->asgarosforum->pagination->renderPagination('search', false, $count);
-        echo '<div class="title-element">'.sprintf(esc_html(_n('%s matching post', '%s matching posts', $count, 'asgaros-forum')), esc_html(number_format_i18n($count))).'</div>';
-        echo '<div class="content-container">';
+        echo '<p class="forum-search-count">'.sprintf(esc_html(_n('%s matching post', '%s matching posts', $count, 'asgaros-forum')), esc_html(number_format_i18n($count))).'</p>';
+        echo '<div class="forum-search-results">';
         foreach ($results['posts'] as $post) {
             $link = $this->asgarosforum->rewrite->get_post_link((int) $post->id, (int) $post->topic_id);
             $excerpt = wp_trim_words(strip_shortcodes($post->text ?? ''), 32);
-            echo '<article class="content-element forum-search-result">';
+            echo '<article class="forum-search-result">';
             echo '<a class="forum-search-result-title" href="'.esc_url($link).'">'.esc_html(stripslashes($post->topic_name)).'</a>';
             echo '<small>'.esc_html($this->asgarosforum->get_plain_username($post->author_id)).' &middot; ';
             echo esc_html($this->asgarosforum->format_date($post->date)).' &middot; '.esc_html($post->forum_name).'</small>';

@@ -67,6 +67,8 @@ $assert_search($filters, array($reply), 'All filters must apply to the same post
 $assert_search(array_diff_key($filters, array('keywords' => true)), array($reply, $unmatched), 'Filters work without keywords');
 $assert_search(array('search_category' => (string) $search_category), array($next_day, $reply, $unmatched, $opening), 'Category-only search includes its subforum posts');
 $assert_search(array('search_forum' => (string) $parent_forum), array($next_day, $reply, $unmatched, $opening), 'Forum filters include subforum posts');
+$assert_search(array('search_scope' => 'category:'.$search_category), array($next_day, $reply, $unmatched, $opening), 'The location picker can select a category');
+$assert_search(array('search_scope' => 'forum:'.$parent_forum), array($next_day, $reply, $unmatched, $opening), 'The location picker can select a forum and its subforums');
 $assert_search(array('search_category' => (string) $other_category, 'search_forum' => (string) $parent_forum), array(), 'Forum and category restrictions must intersect');
 $assert_search(array('keywords' => 'Searchfixture', 'search_in' => 'titles'), array($opening), 'Titles-only search excludes body matches and only returns the opening post');
 $assert_search(array('keywords' => 'Searchfixture', 'search_in' => 'titles', 'search_author' => "Avery O'Neil"), array(), 'Title-only author filter applies to the author of the opening post');
@@ -86,6 +88,7 @@ $asgarosforum->options['topics_per_page'] = $original_page_size;
 $block_category = function ($allowed, $category) use ($search_category) { return $allowed && (int) $category !== $search_category; };
 add_filter('asgarosforum_filter_check_access', $block_category, 10, 2);
 $assert_search(array('keywords' => 'Searchfixture', 'search_category' => (string) $search_category), array(), 'Custom category access policies must apply even to a directly submitted category ID');
+$assert_search(array('search_scope' => 'forum:'.$parent_forum), array(), 'The location picker cannot expose a forum in an inaccessible category');
 remove_filter('asgarosforum_filter_check_access', $block_category, 10);
 
 update_term_meta($other_category, 'usergroups', array(999999));
