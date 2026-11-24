@@ -1,12 +1,8 @@
 <?php
 
-forum_assert(!has_filter('asgarosforum_filter_post_username'), 'APDA permission shortcuts require opt-in');
+forum_assert(!has_action('asgarosforum_after_post_username'), 'APDA permission shortcuts require opt-in');
 require_once dirname(__DIR__).'/integrations/integration-apda-site-assets.php';
 require_once ABSPATH.'wp-admin/includes/user.php';
-
-function members_multiple_user_roles_enabled() {
-    return true;
-}
 
 $assets = new AsgarosForumApdaSiteAssets($asgarosforum);
 $assets->enqueue_styles();
@@ -25,31 +21,58 @@ $category = wp_insert_term('APDA groups', 'asgarosforum-usergroup');
 $group = wp_insert_term('APDA Members', 'asgarosforum-usergroup', array('parent' => $category['term_id']));
 add_role('private_side_viewer', 'Private Side Viewer', array('read' => true));
 $author = wp_create_user('permissions-author', 'test-password', 'permissions-author@example.test');
-$username = '<a class="profile-link">Topic author</a>';
+$author_data = get_userdata($author);
+$author_data->set_role('contributor');
+$other_group = wp_insert_term('Other group', 'asgarosforum-usergroup', array('parent' => $category['term_id']));
+AsgarosForumUserGroups::insertUserGroupsOfUsers($author, array($other_group['term_id']));
+
+$controls_for = function($user_id) {
+    ob_start();
+    do_action('asgarosforum_after_post_username', $user_id);
+    return ob_get_clean();
+};
 $original_view = $asgarosforum->current_view;
 $asgarosforum->current_view = 'topic';
 wp_set_current_user($author);
-forum_assert($assets->add_permission_links($username, 1) === $username, 'A regular user sees no shortcuts');
+forum_assert($controls_for(1) === '', 'A regular user sees no shortcuts');
+$denied = $assets->grant_member_permissions($author, wp_create_nonce('apda_add_permissions_'.$author));
+forum_assert(is_wp_error($denied) && $denied->get_error_data() === 403, 'A regular user cannot grant permissions');
+
 wp_set_current_user(1);
-forum_assert($assets->add_permission_links($username, 0) === $username, 'Guest posts have no user shortcuts');
-forum_assert(strpos($assets->add_permission_links($username, 1), 'apda-add-permissions') === false, 'No bulk shortcut for the administrator account');
-$links = $assets->add_permission_links($username, $author);
-forum_assert(strpos($links, 'apda-edit-permissions') !== false && strpos($links, 'apda-add-permissions') !== false, 'Administrator sees both shortcuts for an author');
+forum_assert($controls_for(0) === '', 'Guest posts have no user shortcuts');
+forum_assert(strpos($controls_for(1), 'apda-add-permissions') === false, 'No grant shortcut for the administrator account');
+$controls = $controls_for($author);
+forum_assert(strpos($controls, 'apda-edit-permissions') !== false && strpos($controls, 'apda-add-permissions') !== false, 'Administrator sees both shortcuts for an author');
+forum_assert(strpos($controls, 'method="post"') !== false && strpos($controls, '/wp-admin/admin-post.php') !== false, 'Add perms uses a native admin POST form');
 $asgarosforum->current_view = 'post';
-forum_assert($assets->add_permission_links($username, $author) === $username, 'Shortcuts only appear in topic view');
+forum_assert($controls_for($author) === '', 'Shortcuts only appear in topic view');
 $asgarosforum->current_view = $original_view;
 
-$original_query = $_GET;
-$_GET = array('user_id' => $author, 'apda_add_permissions' => wp_create_nonce('apda_add_permissions_1'));
-$assets->enqueue_permission_script('user-edit.php');
-forum_assert(!wp_script_is('apda-add-permissions', 'enqueued'), 'A nonce for another author is rejected');
-$_GET['apda_add_permissions'] = wp_create_nonce('apda_add_permissions_'.$author);
-$assets->enqueue_permission_script('profile.php');
-forum_assert(!wp_script_is('apda-add-permissions', 'enqueued'), 'No permission script on the current user profile page');
-$assets->enqueue_permission_script('user-edit.php');
-forum_assert(wp_script_is('apda-add-permissions', 'enqueued'), 'The signed shortcut loads the editor script');
-$setup = implode('', wp_scripts()->get_data('apda-add-permissions', 'before'));
-forum_assert(strpos($setup, '"group":"'.$group['term_id'].'"') !== false, 'APDA Members group resolves by slug');
-$_GET = $original_query;
+$nonce = wp_create_nonce('apda_add_permissions_'.$author);
+$wrong_nonce = $assets->grant_member_permissions($author, wp_create_nonce('apda_add_permissions_1'));
+forum_assert(is_wp_error($wrong_nonce) && $wrong_nonce->get_error_data() === 403, 'A nonce for another author is rejected');
+$admin_grant = $assets->grant_member_permissions(1, wp_create_nonce('apda_add_permissions_1'));
+forum_assert(is_wp_error($admin_grant), 'Cannot grant this bundle to a site administrator');
+$exclude_role = function($roles) {
+    unset($roles['private_side_viewer']);
+    return $roles;
+};
+add_filter('editable_roles', $exclude_role);
+$unavailable = $assets->grant_member_permissions($author, $nonce);
+remove_filter('editable_roles', $exclude_role);
+forum_assert(is_wp_error($unavailable) && $unavailable->get_error_data() === 409, 'Every role must be assignable before granting');
+forum_assert(get_userdata($author)->roles === array('contributor'), 'Rejected requests leave roles intact');
+forum_assert(AsgarosForumUserGroups::getUserGroupsOfUser($author, 'ids') === array($other_group['term_id']), 'Rejected requests leave memberships intact');
 
-echo "APDA site asset loading, topic shortcuts, and signed admin action verified\n";
+$group_add_count = 0;
+add_action('asgarosforum_usergroup_'.$group['term_id'].'_add_user', function() use (&$group_add_count) { ++$group_add_count; });
+forum_assert($assets->grant_member_permissions($author, $nonce) === true, 'A signed grant saves permissions directly');
+forum_assert($assets->grant_member_permissions($author, $nonce) === true, 'Repeating the grant succeeds');
+$roles = get_userdata($author)->roles;
+sort($roles);
+forum_assert($roles === array('contributor', 'private_side_viewer', 'subscriber'), 'Both roles are appended to existing roles');
+$groups = AsgarosForumUserGroups::getUserGroupsOfUser($author, 'ids');
+forum_assert(count($groups) === 2 && in_array($group['term_id'], $groups, true) && in_array($other_group['term_id'], $groups, true), 'APDA Members is appended to existing groups');
+forum_assert($group_add_count === 1, 'The membership hook fires once');
+
+echo "APDA site asset loading and native permission grants verified\n";

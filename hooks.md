@@ -3,6 +3,7 @@
 Overview of [actions](#actions) and [filters](#filters) at asgaros forum.
 
 ## Actions
+- [asgarosforum_after_post_username](#asgarosforum_after_post_username)
 - asgarosforum_after_post_author
 - asgarosforum_after_post_message
 - asgarosforum_after_add_topic_submit
@@ -45,6 +46,10 @@ Overview of [actions](#actions) and [filters](#filters) at asgaros forum.
 - asgarosforum_after_add_reaction
 - asgarosforum_after_remove_reaction
 - asgarosforum_after_update_reaction
+
+### asgarosforum_after_post_username
+
+Runs after the displayed author name. Receives the post author’s user ID.
 
 ### asgarosforum_after_post_author
 

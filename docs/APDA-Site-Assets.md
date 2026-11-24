@@ -7,11 +7,11 @@ The APDA Forum plugin can serve the custom CSS and JavaScript previously managed
 | BlogHash Additional CSS, post 3726 | `skin/apda-bloghash.css` | BlogHash layout, light and dark mode styles, and responsive forum styling |
 | Simple Custom CSS and JS, snippet 48 | `skin/apda-site.css` | Sidebar, search, and load-more overrides |
 | Simple Custom CSS and JS, snippet 3567 | `skin/apda-site.css` | Rainbow styling for the two APDA forum profile links |
-| Simple Custom CSS and JS, snippet 3843 | `integrations/integration-apda-site-assets.php` and `admin/js/apda-add-permissions.js` | Edit perms and Add perms shortcuts next to topic authors |
+| Simple Custom CSS and JS, snippet 3843 | `integrations/integration-apda-site-assets.php` | Edit perms and Add perms shortcuts next to topic authors |
 
 The BlogHash CSS is loaded only with the BlogHash stylesheet. Selectors for APDA's home and forum pages retain their WordPress page IDs (5 and 15). The site CSS loads across public WordPress pages, including pages with forum widgets.
 
-**Edit perms** opens the author's WordPress user editor. **Add perms** opens the same editor and uses its normal save flow to add the Subscriber and Private Side Viewer roles and the APDA Members forum group. It uses the `apda-members` group slug to resolve the local group ID. The shortcut requires Members' multiple-role editing feature and the usual WordPress capabilities for editing and promoting that user. If the editor has a missing or invalid email, it stays open for manual correction.
+**Edit perms** opens the author's WordPress user editor. **Add perms** submits a native WordPress admin action that adds the Subscriber and Private Side Viewer roles and the APDA Members forum group, then opens the user editor. The action requires WordPress capabilities for editing and promoting the user and resolves the group by its `apda-members` slug.
 
 ## Switch over
 
