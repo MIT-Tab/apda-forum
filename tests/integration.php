@@ -114,4 +114,5 @@ echo "Flag picker exclusion, rejected submissions, and retained history verified
 require '/wordpress/wp-content/plugins/asgaros-forum/tests/results-profiles.php';
 require '/wordpress/wp-content/plugins/asgaros-forum/tests/account-login.php';
 require '/wordpress/wp-content/plugins/asgaros-forum/tests/forum-search.php';
+require '/wordpress/wp-content/plugins/asgaros-forum/tests/apda-site-assets.php';
 echo "FORUM_TESTS_PASSED\n";

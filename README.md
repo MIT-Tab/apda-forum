@@ -72,3 +72,5 @@ No Docker, system PHP, or production credentials required. See
 For browser screenshots run `npx playwright install chromium` once.
 
 Production updates from master are described in [Automatic deployment](docs/Automatic-Deployment.md).
+
+The [APDA site assets guide](docs/APDA-Site-Assets.md) covers the WordPress CSS and JavaScript migration.
