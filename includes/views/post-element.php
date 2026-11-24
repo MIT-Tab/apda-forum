@@ -35,6 +35,7 @@ echo '<div class="post-element '.esc_attr($highlight_class).' '.esc_attr($first_
 					// Show username.
 					$username = apply_filters('asgarosforum_filter_post_username', $this->getUsername($post->author_id), $post->author_id);
 					echo wp_kses_post($username);
+					do_action('asgarosforum_after_post_username', $post->author_id);
 
 					// Mentioning name.
 					if ($user_data != false) {

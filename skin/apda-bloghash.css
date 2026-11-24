@@ -1,0 +1,255 @@
+/* --- Shared: Reset positioning so no overhang --- */
+.bloghash-blog-entry-wrapper.bloghash-thumb-hero.bloghash-thumb-left > .post-thumb.entry-media.thumbnail,
+.bloghash-blog-entry-wrapper.bloghash-thumb-hero.bloghash-thumb-left > .post-thumb.entry-media.thumbnail > a.entry-image-link,
+.bloghash-blog-entry-wrapper.bloghash-thumb-hero.bloghash-thumb-left > .post-thumb.entry-media.thumbnail > a.entry-image-link > img {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    transform: none !important;
+}
+
+
+
+article#post-5 {
+    max-width: 900px;   /* or whatever width you want */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+article#post-5 .entry-content.bloghash-entry {
+    padding: 0 !important;
+}
+/* --- Desktop layout --- */
+@media (min-width: 769px) {
+    .bloghash-blog-entry-wrapper.bloghash-thumb-hero.bloghash-thumb-left {
+        display: flex !important;
+        align-items: center !important;
+        gap: 1rem !important;
+    }
+
+    .bloghash-blog-entry-wrapper.bloghash-thumb-hero.bloghash-thumb-left > .post-thumb.entry-media.thumbnail {
+        flex: 0 0 40% !important; /* shrink column */
+        max-width: 40% !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+    }
+
+    .bloghash-blog-entry-wrapper.bloghash-thumb-hero.bloghash-thumb-left > .bloghash-entry-content-wrapper {
+        flex: 1 1 auto !important;
+    }
+}
+
+/* --- Mobile layout --- */
+@media (max-width: 768px) {
+    .bloghash-blog-entry-wrapper.bloghash-thumb-hero.bloghash-thumb-left {
+        display: block !important; /* stack image above text */
+    }
+
+    .bloghash-blog-entry-wrapper.bloghash-thumb-hero.bloghash-thumb-left > .post-thumb.entry-media.thumbnail {
+        width: 100% !important;  /* full width image */
+        max-width: 100% !important;
+        margin-bottom: 1rem !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+    }
+}
+
+@media (max-width: 768px) {
+  :root { --wrap-width: 100%; }
+  body.page-id-15 .bloghash-container,
+  body.page-id-15 .entry-content.bloghash-entry>#af-wrapper {
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: calc(-1 * var(--wrap-width) / 2) !important;
+    margin-right: calc(-1 * var(--wrap-width) / 2) !important;
+    width: var(--wrap-width) !important;
+    max-width: var(--wrap-width) !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  body.page-id-15 #primary,
+  body.page-id-15 #content,
+  body.page-id-15 .entry-content.bloghash-entry,
+  body.page-id-15 article.page,
+  #af-wrapper #forum-header,
+  #af-wrapper #forum-breadcrumbs,
+  #af-wrapper .title-element,
+  #af-wrapper .content-container,
+  #af-wrapper .content-element,
+  #af-wrapper #read-unread,
+  #af-wrapper #statistics,
+  #af-wrapper #bottom-navigation {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+  body.page-id-15 #secondary { display: none !important; }
+  body.page-id-15 .site-content,
+  body.page-id-15 .entry-content.bloghash-entry { overflow: visible !important; }
+  body.page-id-15 .bloghash-glassmorphism { display: none !important; }
+}
+
+/* Dark mode override stays */
+html[data-darkmode="dark"] table tr:nth-child(odd),
+html[data-darkmode="dark"] table tr:nth-child(odd) a {
+  color: white !important;
+}
+
+body.asgaros-forum #af-wrapper {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue",
+               Arial, "Noto Sans", "Liberation Sans", sans-serif !important;
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  h2, h3 { letter-spacing: .15px !important; }
+
+  .post,
+  .post-element,
+  .topic-post,
+  .message {
+    border-radius: 12px !important;
+    padding: 14px !important;
+    margin: 12px 0 !important;
+  }
+
+  .title-element {
+    font-weight: 500 !important;
+    letter-spacing: .2px !important;
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+  }
+
+  .content-container {
+    border-radius: 0 0 12px 12px !important;
+    padding: 4px !important;
+    overflow: hidden;
+
+    > .content-element:last-child {
+      border-bottom: none !important;
+    }
+  }
+
+  div.content-element { }
+  div.forum-poster,
+  div.topic-poster { }
+
+  #statistics-body {
+    border-radius: 0 0 12px 12px !important;
+    padding: 4px !important;
+    overflow: hidden;
+  }
+
+  #statistics-online-users {
+    border-radius: 12px !important;
+    padding: 4px !important;
+  }
+
+  .post-reactions-summary {
+    border-radius: 4px;
+  }
+  .reaction-names {
+    border-radius: 8px;
+    padding: 5px;
+  }
+
+  #forum-header {
+    font-weight: 500 !important;
+    letter-spacing: .2px !important;
+    border-radius: 12px !important;
+    padding: 5px;
+  }
+
+  #forum-search { border-radius: 12px; }
+}
+
+body.asgaros-forum h1.main-title {
+  font-weight: 800 !important;
+  letter-spacing: .2px !important;
+}
+body.asgaros-forum div.topic-name,
+body.asgaros-forum div.forum-name {
+  font-weight: 500 !important;
+  letter-spacing: .2px !important;
+}
+
+body.asgaros-forum #af-wrapper #forum-header #forum-navigation a {
+  border-left: none !important;
+}
+
+/* Light mode only: all color rules */
+html:not([data-darkmode="dark"]) {
+
+  body.asgaros-forum #af-wrapper .post,
+  body.asgaros-forum #af-wrapper .post-element,
+  body.asgaros-forum #af-wrapper .topic-post,
+  body.asgaros-forum #af-wrapper .message {
+    background: #fff !important;
+    border: 1px solid rgba(20,30,40,.1) !important;
+    box-shadow: 2px 2px 10px rgba(0,0,0,.1) !important;
+  }
+
+  body.asgaros-forum #af-wrapper .title-element {
+    box-shadow: 2px 2px 10px rgba(0,0,0,.1) !important;
+    border: 1px solid rgba(20,30,40,.1) !important;
+    border-bottom: 1px solid lightgray !important;
+  }
+
+  body.asgaros-forum #af-wrapper .content-container {
+    background: #fff !important;
+    border: 1px solid rgba(20,30,40,.1) !important;
+    box-shadow: 2px 2px 10px rgba(0,0,0,.1) !important;
+  }
+
+  body.asgaros-forum #af-wrapper div.content-element {
+    background: #fff !important;
+    border-bottom: 1px solid lightgray;
+  }
+
+  body.asgaros-forum #af-wrapper div.forum-poster,
+  body.asgaros-forum #af-wrapper div.topic-poster {
+    background: #fff !important;
+  }
+
+  body.asgaros-forum #af-wrapper #statistics-body {
+    background: #fff !important;
+    border: 1px solid rgba(20,30,40,.1) !important;
+    box-shadow: 2px 2px 10px rgba(0,0,0,.1) !important;
+  }
+
+  body.asgaros-forum #af-wrapper #statistics-online-users {
+    background: #fff !important;
+    border: 1px solid rgba(20,30,40,.1) !important;
+  }
+
+  body.asgaros-forum #af-wrapper .post-reactions-summary {
+    background: #fff;
+  }
+  body.asgaros-forum #af-wrapper .reaction-names {
+    background: #fff;
+  }
+
+  #bloghash-header-inner,
+  #bloghash-primary-nav {
+    background-color: #045fb0;
+  }
+
+  #masthead #bloghash-header #bloghash-header-inner a {
+    color: white !important;
+  }
+
+  #bloghash-header-inner .sub-menu span {
+    color: #045fb0 !important;
+  }
+}
+
+.comments-area {
+	display: none;
+}

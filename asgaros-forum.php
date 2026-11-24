@@ -81,6 +81,11 @@ require 'admin/tables/admin-usergroups-table.php';
 
 $asgarosforum = new AsgarosForum();
 
+if (defined('APDA_REPO_SITE_ASSETS') && APDA_REPO_SITE_ASSETS) {
+    require 'integrations/integration-apda-site-assets.php';
+    new AsgarosForumApdaSiteAssets($asgarosforum);
+}
+
 if (is_admin()) {
     $asgarosforum_admin = new AsgarosForumAdmin($asgarosforum);
 }

@@ -104,6 +104,26 @@ class AsgarosForumUserGroups {
         }
     }
 
+    // Append a membership without replacing the user's other group assignments.
+    public static function addUserToUserGroup($user_id, $group_id) {
+        $group_id = (int) $group_id;
+        $member = is_object_in_term($user_id, self::$taxonomyName, $group_id);
+        if ($member !== false) {
+            return $member;
+        }
+
+        $result = wp_add_object_terms($user_id, $group_id, self::$taxonomyName);
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        if (!$result || is_object_in_term($user_id, self::$taxonomyName, $group_id) !== true) {
+            return new WP_Error('asgarosforum_usergroup_assignment_failed');
+        }
+
+        do_action('asgarosforum_usergroup_'.$group_id.'_add_user', $user_id, $group_id);
+        return true;
+    }
+
     // Assign an user to all given usergroups. The user gets removed from usergroups which are not inside the array anymore.
     public static function insertUserGroupsOfUsers($user_id, $usergroups) {
         // Get all current usergroups of the user first which allows us to run specific hooks.
